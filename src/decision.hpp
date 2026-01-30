@@ -50,6 +50,8 @@ public:
     void add_scheduler_finished_submitting_jobs(double date);
 
     void add_query_energy_consumption(double date);
+    void add_query_carbon_intensity(double date);
+    void add_query_water_intensity(double date);
     void add_answer_estimate_waiting_time(const std::string & job_id,
                                           double estimated_waiting_time,
                                           double date);

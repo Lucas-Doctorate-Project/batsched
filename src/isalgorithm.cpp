@@ -22,6 +22,10 @@ void ISchedulingAlgorithm::clear_recent_data_structures()
     _nopped_recently = false;
     _consumed_joules_updated_recently = false;
     _consumed_joules = -1;
+    _carbon_intensity_updated_recently = false;
+    _carbon_intensity = -1;
+    _water_intensity_updated_recently = false;
+    _water_intensity = -1;
 }
 
 ISchedulingAlgorithm::ISchedulingAlgorithm(Workload *workload,
@@ -98,6 +102,20 @@ void ISchedulingAlgorithm::on_answer_energy_consumption(double date, double cons
     (void) date;
     _consumed_joules = consumed_joules;
     _consumed_joules_updated_recently = true;
+}
+
+void ISchedulingAlgorithm::on_answer_carbon_intensity(double date, double carbon_intensity)
+{
+    (void) date;
+    _carbon_intensity = carbon_intensity;
+    _carbon_intensity_updated_recently = true;
+}
+
+void ISchedulingAlgorithm::on_answer_water_intensity(double date, double water_intensity)
+{
+    (void) date;
+    _water_intensity = water_intensity;
+    _water_intensity_updated_recently = true;
 }
 
 void ISchedulingAlgorithm::on_machine_available_notify_event(double date, IntervalSet machines)

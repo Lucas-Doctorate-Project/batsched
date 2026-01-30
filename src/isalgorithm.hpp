@@ -98,6 +98,20 @@ public:
     virtual void on_answer_energy_consumption(double date, double consumed_joules);
 
     /**
+     * @brief This function is called when an ANSWER message about carbon intensity is received
+     * @param[in] date The date at which the ANSWER message has been received
+     * @param[in] carbon_intensity The carbon intensity in g CO2/kWh
+     */
+    virtual void on_answer_carbon_intensity(double date, double carbon_intensity);
+
+    /**
+     * @brief This function is called when an ANSWER message about water intensity is received
+     * @param[in] date The date at which the ANSWER message has been received
+     * @param[in] water_intensity The water intensity in L/kWh
+     */
+    virtual void on_answer_water_intensity(double date, double water_intensity);
+
+    /**
      * @brief This function is called when a machine_available NOTIFY event is received.
      * @param[in] date The date at which the NOTIFY event has been received.
      * @param[in] machines The machines whose availability has changed.
@@ -163,4 +177,8 @@ protected:
     bool _nopped_recently = false;
     bool _consumed_joules_updated_recently = false;
     double _consumed_joules = 0.0;
+    bool _carbon_intensity_updated_recently = false;
+    double _carbon_intensity = 0.0;
+    bool _water_intensity_updated_recently = false;
+    double _water_intensity = 0.0;
 };

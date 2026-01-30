@@ -48,6 +48,64 @@ void JsonProtocolWriter::append_query_consumed_energy(double date)
     _events.PushBack(event, _alloc);
 }
 
+void JsonProtocolWriter::append_query_carbon_intensity(double date)
+{
+    /* {
+      "timestamp": 10.0,
+      "type": "QUERY",
+      "data": {
+        "requests": {"carbon_intensity": {}}
+      }
+    } */
+
+    PPK_ASSERT_ERROR(date >= _last_date, "Date inconsistency");
+    _last_date = date;
+    _is_empty = false;
+
+    Value empty_object(rapidjson::kObjectType);
+    Value requests_object(rapidjson::kObjectType);
+    requests_object.AddMember("carbon_intensity", empty_object, _alloc);
+
+    Value data(rapidjson::kObjectType);
+    data.AddMember("requests", requests_object, _alloc);
+
+    Value event(rapidjson::kObjectType);
+    event.AddMember("timestamp", Value().SetDouble(date), _alloc);
+    event.AddMember("type", Value().SetString("QUERY"), _alloc);
+    event.AddMember("data", data, _alloc);
+
+    _events.PushBack(event, _alloc);
+}
+
+void JsonProtocolWriter::append_query_water_intensity(double date)
+{
+    /* {
+      "timestamp": 10.0,
+      "type": "QUERY",
+      "data": {
+        "requests": {"water_intensity": {}}
+      }
+    } */
+
+    PPK_ASSERT_ERROR(date >= _last_date, "Date inconsistency");
+    _last_date = date;
+    _is_empty = false;
+
+    Value empty_object(rapidjson::kObjectType);
+    Value requests_object(rapidjson::kObjectType);
+    requests_object.AddMember("water_intensity", empty_object, _alloc);
+
+    Value data(rapidjson::kObjectType);
+    data.AddMember("requests", requests_object, _alloc);
+
+    Value event(rapidjson::kObjectType);
+    event.AddMember("timestamp", Value().SetDouble(date), _alloc);
+    event.AddMember("type", Value().SetString("QUERY"), _alloc);
+    event.AddMember("data", data, _alloc);
+
+    _events.PushBack(event, _alloc);
+}
+
 void JsonProtocolWriter::append_answer_estimate_waiting_time(const string &job_id,
                                                              double estimated_waiting_time,
                                                              double date)
