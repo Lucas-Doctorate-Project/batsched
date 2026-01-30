@@ -31,6 +31,7 @@
 #include "algo/energy_bf_monitoring_inertial_shutdown.hpp"
 #include "algo/energy_bf_machine_subpart_sleeper.hpp"
 #include "algo/energy_watcher.hpp"
+#include "algo/intensity_poc.hpp"
 #include "algo/filler.hpp"
 #include "algo/fcfs.hpp"
 #include "algo/fcfs_fast.hpp"
@@ -79,7 +80,7 @@ int main(int argc, char ** argv)
                                       "energy_bf_monitoring",
                                       "energy_bf_monitoring_inertial", "energy_bf_subpart_sleeper",
                                       "energy_watcher", "fcfs", "fcfs_fast",
-                                      "filler", "killer", "killer2", "random", "rejecter",
+                                      "filler", "intensity_poc", "killer", "killer2", "random", "rejecter",
                                       "sequencer", "sleeper", "submitter", "waiting_time_estimator"};
     const set<string> policies_set = {"basic", "contiguous"};
     const set<string> queue_orders_set = {"fcfs", "lcfs", "desc_bounded_slowdown", "desc_slowdown",
@@ -288,6 +289,8 @@ int main(int argc, char ** argv)
             algo = new FCFS(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
         else if (scheduling_variant == "fcfs_fast")
             algo = new FCFSFast(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
+        else if (scheduling_variant == "intensity_poc")
+            algo = new IntensityProofOfConcept(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
         else if (scheduling_variant == "killer")
             algo = new Killer(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
         else if (scheduling_variant == "killer2")

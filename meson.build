@@ -50,6 +50,8 @@ src = [
     'src/algo/energy_bf_monitoring_period.hpp',
     'src/algo/energy_watcher.cpp',
     'src/algo/energy_watcher.hpp',
+    'src/algo/intensity_poc.cpp',
+    'src/algo/intensity_poc.hpp',
     'src/algo/fcfs_fast.cpp',
     'src/algo/fcfs_fast.hpp',
     'src/algo/fcfs.cpp',
