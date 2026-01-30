@@ -8,6 +8,12 @@
 
 using namespace std;
 
+double COMPARISON_EPSILON = 1e-9;
+bool areEssentiallyEqual(double d1, double d2) 
+{
+    return abs(d1 - d2) < COMPARISON_EPSILON;
+}
+
 SortableJobOrder::UpdateInformation::UpdateInformation(Rational current_date) :
     current_date(current_date)
 {
@@ -214,6 +220,7 @@ void DescendingWalltimeOrder::updateJob(SortableJob *job, const SortableJobOrder
     (void) info;
 }
 
+
 AscendingEstimatedAreaOrder::~AscendingEstimatedAreaOrder() 
 {
 
@@ -229,10 +236,48 @@ bool AscendingEstimatedAreaOrder::compare(const SortableJob *j1, const SortableJ
 
     if (job_1_estimated_area == job_2_estimated_area) 
         return j1->release_date < j2->release_date;
+
     return job_1_estimated_area < job_2_estimated_area;
 }
 
 void AscendingEstimatedAreaOrder::updateJob(SortableJob *job, const SortableJobOrder::UpdateInformation *info) const
+{
+    (void) job;
+    (void) info;
+}
+
+
+AscendingF1Order::~AscendingF1Order() 
+{
+
+}
+
+bool AscendingF1Order::compare(const SortableJob *j1, const SortableJob *j2, const SortableJobOrder::CompareInformation *info) const
+{
+    /* Based on F1 = log10(estimated_processing_time) * requested_resources + 870*log10(job_arrival_date), 
+    as described in https://dl.acm.org/doi/epdf/10.1145/3126908.3126955 */
+    (void) info;
+
+    double walltime_1 = (double) j1->job->walltime; 
+    double walltime_2 = (double) j2->job->walltime;
+    
+    double nb_req_res_1 = (double) j1->job->nb_requested_resources; 
+    double nb_req_res_2 = (double) j2->job->nb_requested_resources;
+    
+    double rel_date_1 = (double) j1->release_date; 
+    double rel_date_2 = (double) j2->release_date;
+
+    // For safety, we add +1.0 into numbers in log to ensure we don't do log(0), since the release_date of the first job can be equal to 0.
+    double job_1_f1_score = (log10(walltime_1 + 1.0) * nb_req_res_1) + (870.0 * log10(rel_date_1 + 1.0));
+    double job_2_f1_score = (log10(walltime_2 + 1.0) * nb_req_res_2) + (870.0 * log10(rel_date_2 + 1.0));
+
+    if (areEssentiallyEqual(job_1_f1_score, job_2_f1_score)) 
+        return j1->release_date < j2->release_date;
+    
+    return job_1_f1_score < job_2_f1_score;
+}
+
+void AscendingF1Order::updateJob(SortableJob *job, const SortableJobOrder::UpdateInformation *info) const
 {
     (void) job;
     (void) info;

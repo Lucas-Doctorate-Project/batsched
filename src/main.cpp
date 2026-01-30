@@ -83,7 +83,7 @@ int main(int argc, char ** argv)
                                       "sequencer", "sleeper", "submitter", "waiting_time_estimator"};
     const set<string> policies_set = {"basic", "contiguous"};
     const set<string> queue_orders_set = {"fcfs", "lcfs", "desc_bounded_slowdown", "desc_slowdown",
-                                          "asc_size", "desc_size", "asc_walltime", "desc_walltime", "asc_estimated_area"};
+                                          "asc_size", "desc_size", "asc_walltime", "desc_walltime", "asc_estimated_area", "asc_f1"};
     const set<string> verbosity_levels_set = {"debug", "info", "quiet", "silent"};
 
     const string variants_string = "{" + boost::algorithm::join(variants_set, ", ") + "}";
@@ -214,6 +214,8 @@ int main(int argc, char ** argv)
             order = new DescendingWalltimeOrder;
         else if (queue_order == "asc_estimated_area")
             order = new AscendingEstimatedAreaOrder;
+        else if (queue_order == "asc_f1")
+            order = new AscendingF1Order;
 
         queue = new Queue(order);
 
