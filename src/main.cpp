@@ -447,6 +447,16 @@ void run(Network & n, ISchedulingAlgorithm * algo, SchedulingDecision & d,
                         double consumed_joules = itr->value.GetDouble();
                         algo->on_answer_energy_consumption(current_date, consumed_joules);
                     }
+                    else if (key_value == "carbon_intensity")
+                    {
+                        double carbon_intensity = itr->value.GetDouble();
+                        algo->on_answer_carbon_intensity(current_date, carbon_intensity);
+                    }
+                    else if (key_value == "water_intensity")
+                    {
+                        double water_intensity = itr->value.GetDouble();
+                        algo->on_answer_water_intensity(current_date, water_intensity);
+                    }
                     else
                     {
                         PPK_ASSERT_ERROR(false, "Unknown ANSWER type received '%s'", key_value.c_str());
