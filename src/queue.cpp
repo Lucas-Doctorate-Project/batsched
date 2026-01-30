@@ -268,8 +268,8 @@ bool AscendingF1Order::compare(const SortableJob *j1, const SortableJob *j2, con
     double rel_date_2 = (double) j2->release_date;
 
     // For safety, we add +1.0 into numbers in log to ensure we don't do log(0), since the release_date of the first job can be equal to 0.
-    double job_1_f1_score = (log10(walltime_1 + 1.0) * nb_req_res_1) + (870.0 * log10(rel_date_1 + 1.0));
-    double job_2_f1_score = (log10(walltime_2 + 1.0) * nb_req_res_2) + (870.0 * log10(rel_date_2 + 1.0));
+    double job_1_f1_score = (std::log10(walltime_1 + 1.0) * nb_req_res_1) + (870.0 * std::log10(rel_date_1 + 1.0));
+    double job_2_f1_score = (std::log10(walltime_2 + 1.0) * nb_req_res_2) + (870.0 * std::log10(rel_date_2 + 1.0));
 
     if (areEssentiallyEqual(job_1_f1_score, job_2_f1_score)) 
         return j1->release_date < j2->release_date;
