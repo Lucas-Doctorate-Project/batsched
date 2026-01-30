@@ -213,6 +213,30 @@ void DescendingWalltimeOrder::updateJob(SortableJob *job, const SortableJobOrder
     (void) job;
     (void) info;
 }
+
+AscendingEstimatedAreaOrder::~AscendingEstimatedAreaOrder() 
+{
+
+}
+
+bool AscendingEstimatedAreaOrder::compare(const SortableJob *j1, const SortableJob *j2, const SortableJobOrder::CompareInformation *info) const
+{
+    /* Based on SAF = estimated_processing_time * requested_resources described in https://hal.science/hal-02237895v1/document*/
+    (void) info;
+
+    Rational job_1_estimated_area = j1->job->walltime * j1->job->nb_requested_resources;
+    Rational job_2_estimated_area = j2->job->walltime * j2->job->nb_requested_resources;
+
+    if (job_1_estimated_area == job_2_estimated_area) 
+        return j1->release_date < j2->release_date;
+    return job_1_estimated_area < job_2_estimated_area;
+}
+
+void AscendingEstimatedAreaOrder::updateJob(SortableJob *job, const SortableJobOrder::UpdateInformation *info) const
+{
+    (void) job;
+    (void) info;
+}
 /**********
 ** QUEUE **
 **********/
