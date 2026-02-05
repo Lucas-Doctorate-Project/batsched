@@ -56,6 +56,8 @@ src = [
     'src/algo/fcfs.hpp',
     'src/algo/filler.cpp',
     'src/algo/filler.hpp',
+    'src/algo/greenfilling.cpp',
+    'src/algo/greenfilling.hpp',
     'src/algo/killer2.cpp',
     'src/algo/killer2.hpp',
     'src/algo/killer.cpp',
