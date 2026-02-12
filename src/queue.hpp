@@ -107,6 +107,22 @@ public:
     void updateJob(SortableJob * job, const UpdateInformation * info = nullptr) const;
 };
 
+class SAFOrder : public SortableJobOrder
+{
+public:
+    ~SAFOrder();
+    bool compare(const SortableJob * j1, const SortableJob * j2, const CompareInformation * info = nullptr) const;
+    void updateJob(SortableJob * job, const UpdateInformation * info = nullptr) const;
+};
+
+class FrontierOrder : public SortableJobOrder
+{
+public:
+    ~FrontierOrder();
+    bool compare(const SortableJob * j1, const SortableJob * j2, const CompareInformation * info = nullptr) const;
+    void updateJob(SortableJob * job, const UpdateInformation * info = nullptr) const;
+};
+
 class Queue
 {
 public:

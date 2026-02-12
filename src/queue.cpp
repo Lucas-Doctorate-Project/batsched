@@ -354,3 +354,65 @@ std::list<SortableJob *>::const_iterator Queue::end() const
     return _jobs.end();
 }
 
+// Adding specs for SAF scheduler
+
+SAFOrder::~SAFOrder()
+{
+
+}
+
+bool SAFOrder::compare(const SortableJob *j1, const SortableJob *j2, const SortableJobOrder::CompareInformation *info) const
+{
+    (void) info;
+    
+    // Jobs without walltime are assumed to be very long.
+    if (!j1->job->has_walltime)
+        if (!j2->job->has_walltime) return j1->job->id < j2->job->id;
+	else return false;
+    else if (!j2->job->has_walltime) return true;
+        else return ( (j1->job->walltime * j1->job->nb_requested_resources) < (j2->job->walltime * j2->job->nb_requested_resources) );
+}
+
+void SAFOrder::updateJob(SortableJob *job, const SortableJobOrder::UpdateInformation *info) const
+{
+    (void) job;
+    (void) info;
+}
+
+FrontierOrder::~FrontierOrder()
+{
+
+}
+
+bool FrontierOrder::compare(const SortableJob *j1, const SortableJob *j2, const SortableJobOrder::CompareInformation *info) const
+{
+    (void) info;
+    double currentTime = 15 * 365 * 24 * 60 * 60; // Number of seconds in 15 years, ignoring leap years.
+    // Placeholder for currentTime - j{1,2}->job->submission_time.
+
+    int multiplierJ1 = j1->job->submission_time;
+    if (multiplierJ1 >= 50) multiplierJ1 = 5;
+    else if (multiplierJ1 >= 35) multiplierJ1 = 3;
+    else if (multiplierJ1 >= 20) multiplierJ1 = 1;
+    else multiplierJ1 = 0;
+
+    int multiplierJ2 = j1->job->submission_time;
+    if (multiplierJ2 >= 50) multiplierJ2 = 5;
+    else if (multiplierJ2 >= 35) multiplierJ2 = 3;
+    else if (multiplierJ2 >= 20) multiplierJ2 = 1;
+    else multiplierJ2 = 0;
+
+    return
+    (
+    	(currentTime - j1->job->submission_time * 31536000 + multiplierJ1 * 31536000)
+	    >
+    	(currentTime - j2->job->submission_time * 31536000 + multiplierJ2 * 31536000)
+    );
+
+}
+
+void FrontierOrder::updateJob(SortableJob *job, const SortableJobOrder::UpdateInformation *info) const
+{
+    (void) job;
+    (void) info;
+}

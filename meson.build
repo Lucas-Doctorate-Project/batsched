@@ -94,7 +94,11 @@ src = [
     'src/queueing_theory_waiting_time_estimator.cpp',
     'src/queueing_theory_waiting_time_estimator.hpp',
     'src/schedule.cpp',
-    'src/schedule.hpp'
+    'src/schedule.hpp',
+    'src/algo/saf.cpp',
+    'src/algo/saf.hpp',
+    'src/algo/frontier.cpp',
+    'src/algo/frontier.hpp'
 ]
 include_dir = include_directories('src')
 

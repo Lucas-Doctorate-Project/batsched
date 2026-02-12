@@ -43,6 +43,9 @@
 #include "algo/submitter.hpp"
 #include "algo/wt_estimator.hpp"
 
+#include "algo/saf.hpp"
+#include "algo/frontier.hpp"
+
 using namespace std;
 using namespace boost;
 
@@ -80,10 +83,14 @@ int main(int argc, char ** argv)
                                       "energy_bf_monitoring_inertial", "energy_bf_subpart_sleeper",
                                       "energy_watcher", "fcfs", "fcfs_fast",
                                       "filler", "killer", "killer2", "random", "rejecter",
-                                      "sequencer", "sleeper", "submitter", "waiting_time_estimator"};
+                                      "sequencer", "sleeper", "submitter", "waiting_time_estimator",
+				      "saf", "frontier"}; 	// Smallest Area First
+				      				// e algoritmo do Frontier
     const set<string> policies_set = {"basic", "contiguous"};
     const set<string> queue_orders_set = {"fcfs", "lcfs", "desc_bounded_slowdown", "desc_slowdown",
-                                          "asc_size", "desc_size", "asc_walltime", "desc_walltime"};
+                                          "asc_size", "desc_size", "asc_walltime", "desc_walltime",
+					  "saf", "frontier"};	// Smallest Area First
+					  			// e algoritmo do Frontier
     const set<string> verbosity_levels_set = {"debug", "info", "quiet", "silent"};
 
     const string variants_string = "{" + boost::algorithm::join(variants_set, ", ") + "}";
@@ -196,7 +203,11 @@ int main(int argc, char ** argv)
         SchedulingDecision decision;
 
         // Queue order
-        if (queue_order == "fcfs")
+        if (queue_order == "saf") // Smallest Area First
+            order = new SAFOrder;
+        else if (queue_order == "frontier") // To simulate Frontier's algorithm
+            order = new FrontierOrder;
+        else if (queue_order == "fcfs")
             order = new FCFSOrder;
         else if (queue_order == "lcfs")
             order = new LCFSOrder;
@@ -258,7 +269,11 @@ int main(int argc, char ** argv)
         LOG_F(1, "variant_options = '%s'", variant_options.c_str());
 
         // Scheduling variant
-        if (scheduling_variant == "filler")
+        if (scheduling_variant == "saf") // Smallest Area First
+            algo = new SAF(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
+        else if (scheduling_variant == "frontier") // To simulate Frontier's algorithm
+            algo = new Frontier(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
+        else if (scheduling_variant == "filler")
             algo = new Filler(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
         else if (scheduling_variant == "conservative_bf")
             algo = new ConservativeBackfilling(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
