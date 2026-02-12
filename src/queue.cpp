@@ -404,9 +404,9 @@ bool FrontierOrder::compare(const SortableJob *j1, const SortableJob *j2, const 
 
     return
     (
-    	(currentTime - j1->job->submission_time * 31536000 + multiplierJ1 * 31536000)
+    	( (currentTime - j1->job->submission_time) * 31536000 + multiplierJ1 * 31536000)
 	    >
-    	(currentTime - j2->job->submission_time * 31536000 + multiplierJ2 * 31536000)
+    	( (currentTime - j2->job->submission_time) * 31536000 + multiplierJ2 * 31536000)
     );
 
 }
