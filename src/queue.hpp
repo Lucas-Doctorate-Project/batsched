@@ -12,9 +12,11 @@ struct SortableJob
     Rational release_date;
     Rational slowdown;
     Rational bounded_slowdown;
+    Rational age;
 
     void update_slowdown(Rational current_date);
     void update_bounded_slowdown(Rational current_date, Rational execution_time_lower_bound);
+    void update_age(Rational current_date);
 };
 
 class SortableJobOrder
@@ -119,6 +121,22 @@ class AscendingF1Order : public SortableJobOrder
 {
 public:
     ~AscendingF1Order();
+    bool compare(const SortableJob * j1, const SortableJob * j2, const CompareInformation * info = nullptr) const;
+    void updateJob(SortableJob * job, const UpdateInformation * info = nullptr) const;
+};
+
+class FrontierOrder : public SortableJobOrder
+{
+public:
+    struct FrontierCompareInformation : public CompareInformation
+    {
+        FrontierCompareInformation(int nb_machines);
+        ~FrontierCompareInformation() override;
+
+        int nb_machines;
+    };
+
+    ~FrontierOrder();
     bool compare(const SortableJob * j1, const SortableJob * j2, const CompareInformation * info = nullptr) const;
     void updateJob(SortableJob * job, const UpdateInformation * info = nullptr) const;
 };

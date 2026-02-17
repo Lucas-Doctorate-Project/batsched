@@ -51,7 +51,9 @@ namespace n = network;
 namespace r = rapidjson;
 
 void run(Network & n, ISchedulingAlgorithm * algo, SchedulingDecision &d,
-         Workload &workload, bool call_make_decisions_on_single_nop = true);
+         Workload &workload, SortableJobOrder * order,
+         SortableJobOrder::CompareInformation * compare_info,
+         bool call_make_decisions_on_single_nop = true);
 
 /** @def STR_HELPER(x)
  *  @brief Helper macro to retrieve the string view of a macro.
@@ -84,7 +86,7 @@ int main(int argc, char ** argv)
                                       "sequencer", "sleeper", "submitter", "waiting_time_estimator"};
     const set<string> policies_set = {"basic", "contiguous"};
     const set<string> queue_orders_set = {"fcfs", "lcfs", "desc_bounded_slowdown", "desc_slowdown",
-                                          "asc_size", "desc_size", "asc_walltime", "desc_walltime", "asc_estimated_area", "asc_f1"};
+                                          "asc_size", "desc_size", "asc_walltime", "desc_walltime", "asc_estimated_area", "asc_f1", "frontier"};
     const set<string> verbosity_levels_set = {"debug", "info", "quiet", "silent"};
 
     const string variants_string = "{" + boost::algorithm::join(variants_set, ", ") + "}";
@@ -96,6 +98,7 @@ int main(int argc, char ** argv)
     ResourceSelector * selector = nullptr;
     Queue * queue = nullptr;
     SortableJobOrder * order = nullptr;
+    SortableJobOrder::CompareInformation * compare_info = nullptr;
 
     args::ArgumentParser parser("A Batsim-compatible scheduler in C++.");
     args::HelpFlag flag_help(parser, "help", "Display this help menu", {'h', "help"});
@@ -196,7 +199,6 @@ int main(int argc, char ** argv)
         // Scheduling parameters
         SchedulingDecision decision;
 
-        // Queue order
         if (queue_order == "fcfs")
             order = new FCFSOrder;
         else if (queue_order == "lcfs")
@@ -217,6 +219,8 @@ int main(int argc, char ** argv)
             order = new AscendingEstimatedAreaOrder;
         else if (queue_order == "asc_f1")
             order = new AscendingF1Order;
+        else if (queue_order == "frontier")
+            order = new FrontierOrder;
 
         queue = new Queue(order);
 
@@ -317,7 +321,7 @@ int main(int argc, char ** argv)
         n.bind(socket_endpoint);
 
         // Run the simulation
-        run(n, algo, decision, w, call_make_decisions_on_single_nop);
+        run(n, algo, decision, w, order, compare_info, call_make_decisions_on_single_nop);
     }
     catch(const std::exception & e)
     {
@@ -333,6 +337,7 @@ int main(int argc, char ** argv)
 
             delete queue;
             delete order;
+            delete compare_info;
 
             delete algo;
             delete selector;
@@ -343,6 +348,7 @@ int main(int argc, char ** argv)
 
     delete queue;
     delete order;
+    delete compare_info;
 
     delete algo;
     delete selector;
@@ -351,7 +357,9 @@ int main(int argc, char ** argv)
 }
 
 void run(Network & n, ISchedulingAlgorithm * algo, SchedulingDecision & d,
-         Workload & workload, bool call_make_decisions_on_single_nop)
+         Workload & workload, SortableJobOrder * order,
+         SortableJobOrder::CompareInformation * compare_info,
+         bool call_make_decisions_on_single_nop)
 {
     bool simulation_finished = false;
 
@@ -396,6 +404,14 @@ void run(Network & n, ISchedulingAlgorithm * algo, SchedulingDecision & d,
                 }
 
                 algo->set_nb_machines(nb_resources);
+
+                // Create FrontierCompareInformation if using FrontierOrder
+                FrontierOrder * frontier_order = dynamic_cast<FrontierOrder *>(order);
+                if (frontier_order != nullptr)
+                {
+                    compare_info = new FrontierOrder::FrontierCompareInformation(nb_resources);
+                }
+
                 algo->on_simulation_start(current_date, event_data["config"]);
             }
             else if (event_type == "SIMULATION_ENDS")
@@ -532,7 +548,7 @@ void run(Network & n, ISchedulingAlgorithm * algo, SchedulingDecision & d,
         if (!(!call_make_decisions_on_single_nop && requested_callback_only))
         {
             SortableJobOrder::UpdateInformation update_info(current_date);
-            algo->make_decisions(message_date, &update_info, nullptr);
+            algo->make_decisions(message_date, &update_info, compare_info);
             algo->clear_recent_data_structures();
         }
 
