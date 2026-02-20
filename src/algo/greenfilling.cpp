@@ -17,14 +17,11 @@ Greenfilling::Greenfilling(Workload * workload,
     if (variant_options->HasMember("alpha"))
         _alpha = (*variant_options)["alpha"].GetDouble();
 
-    if (variant_options->HasMember("query_on_new_jobs"))
-        _query_on_new_jobs = (*variant_options)["query_on_new_jobs"].GetBool();
-
     if (variant_options->HasMember("greenfilling_debug"))
         _greenfilling_debug = (*variant_options)["greenfilling_debug"].GetBool();
 
     if (_greenfilling_debug)
-        LOG_F(INFO, "Greenfilling initialized with alpha=%g, query_on_new_jobs=%d", _alpha, (int)_query_on_new_jobs);
+        LOG_F(INFO, "Greenfilling initialized with alpha=%g", _alpha);
 }
 
 Greenfilling::~Greenfilling()
@@ -34,6 +31,9 @@ Greenfilling::~Greenfilling()
 void Greenfilling::on_simulation_start(double date, const rapidjson::Value & batsim_config)
 {
     EasyBackfilling::on_simulation_start(date, batsim_config);
+    // Bootstrap the EMA before the first job arrives
+    _decision->add_query_carbon_intensity(date);
+    _decision->add_query_water_intensity(date);
 }
 
 void Greenfilling::on_answer_carbon_intensity(double date, double carbon_intensity)
@@ -84,7 +84,7 @@ void Greenfilling::update_water_ema(double water_intensity)
 
 void Greenfilling::query_intensities_if_needed(double date)
 {
-    if (_query_on_new_jobs && !_jobs_released_recently.empty())
+    if (!_jobs_released_recently.empty() || !_jobs_ended_recently.empty())
     {
         _decision->add_query_carbon_intensity(date);
         _decision->add_query_water_intensity(date);
@@ -110,7 +110,7 @@ void Greenfilling::make_decisions(double date,
                                   SortableJobOrder::UpdateInformation * update_info,
                                   SortableJobOrder::CompareInformation * compare_info)
 {
-    // Query intensities when new jobs arrive
+    // Query intensities on any scheduling event (job arrival or completion)
     query_intensities_if_needed(date);
 
     const Job * priority_job_before = _queue->first_job_or_nullptr();

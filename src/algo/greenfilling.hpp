@@ -30,6 +30,5 @@ private:
     bool _water_ema_initialized = false;
 
     double _alpha = 0.3;
-    bool _query_on_new_jobs = true;
     bool _greenfilling_debug = false;
 };
