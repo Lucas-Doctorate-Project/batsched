@@ -102,8 +102,8 @@ bool Greenfilling::should_allow_backfilling() const
     if (!_carbon_ema_initialized && _water_ema_initialized)
         return _water_intensity <= _water_ema;
 
-    // Both initialized: allow if either metric is at or below its EMA
-    return (_carbon_intensity <= _carbon_ema) || (_water_intensity <= _water_ema);
+    // Both initialized: allow only if both metrics are at or below their EMA
+    return (_carbon_intensity <= _carbon_ema) && (_water_intensity <= _water_ema);
 }
 
 void Greenfilling::make_decisions(double date,
