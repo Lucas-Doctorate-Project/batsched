@@ -23,9 +23,7 @@ void ISchedulingAlgorithm::clear_recent_data_structures()
     _consumed_joules_updated_recently = false;
     _consumed_joules = -1;
     _carbon_intensity_updated_recently = false;
-    _carbon_intensity = -1;
     _water_intensity_updated_recently = false;
-    _water_intensity = -1;
 }
 
 ISchedulingAlgorithm::ISchedulingAlgorithm(Workload *workload,
