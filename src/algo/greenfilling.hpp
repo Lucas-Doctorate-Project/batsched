@@ -28,6 +28,6 @@ private:
     bool _carbon_ema_initialized = false;
     bool _water_ema_initialized = false;
 
-    double _alpha = 0.3;
+    double _smoothing_factor = 0.3;
     bool _greenfilling_debug = false;
 };

@@ -15,13 +15,13 @@ Greenfilling::Greenfilling(Workload * workload,
     EasyBackfilling(workload, decision, queue, selector, rjms_delay, variant_options)
 {
     if (variant_options->HasMember("alpha"))
-        _alpha = (*variant_options)["alpha"].GetDouble();
+        _smoothing_factor = (*variant_options)["alpha"].GetDouble();
 
     if (variant_options->HasMember("greenfilling_debug"))
         _greenfilling_debug = (*variant_options)["greenfilling_debug"].GetBool();
 
     if (_greenfilling_debug)
-        LOG_F(INFO, "Greenfilling initialized with alpha=%g", _alpha);
+        LOG_F(INFO, "Greenfilling initialized with smoothing_factor=%g", _smoothing_factor);
 }
 
 Greenfilling::~Greenfilling()
@@ -59,7 +59,7 @@ void Greenfilling::update_ema(double intensity, double & ema, bool & initialized
     }
     else
     {
-        ema = _alpha * intensity + (1.0 - _alpha) * ema;
+        ema = _smoothing_factor * intensity + (1.0 - _smoothing_factor) * ema;
         if (_greenfilling_debug)
             LOG_F(INFO, "%s EMA updated to %g (current=%g)", label, ema, intensity);
     }
