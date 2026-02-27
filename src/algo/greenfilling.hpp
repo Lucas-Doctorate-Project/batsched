@@ -29,5 +29,6 @@ private:
     bool _water_ema_initialized = false;
 
     double _smoothing_factor = 0.3;
+    double _ema_threshold = 1.0;
     bool _greenfilling_debug = false;
 };
