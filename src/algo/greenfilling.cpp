@@ -14,8 +14,8 @@ Greenfilling::Greenfilling(Workload * workload,
                            rapidjson::Document * variant_options) :
     EasyBackfilling(workload, decision, queue, selector, rjms_delay, variant_options)
 {
-    if (variant_options->HasMember("alpha"))
-        _smoothing_factor = (*variant_options)["alpha"].GetDouble();
+    if (variant_options->HasMember("smoothing_factor"))
+        _smoothing_factor = (*variant_options)["smoothing_factor"].GetDouble();
 
     if (variant_options->HasMember("ema_threshold"))
         _ema_threshold = (*variant_options)["ema_threshold"].GetDouble();
