@@ -39,46 +39,29 @@ void Greenfilling::on_simulation_start(double date, const rapidjson::Value & bat
 void Greenfilling::on_answer_carbon_intensity(double date, double carbon_intensity)
 {
     ISchedulingAlgorithm::on_answer_carbon_intensity(date, carbon_intensity);
-    update_carbon_ema(carbon_intensity);
+    update_ema(carbon_intensity, _carbon_ema, _carbon_ema_initialized, "Carbon");
 }
 
 void Greenfilling::on_answer_water_intensity(double date, double water_intensity)
 {
     ISchedulingAlgorithm::on_answer_water_intensity(date, water_intensity);
-    update_water_ema(water_intensity);
+    update_ema(water_intensity, _water_ema, _water_ema_initialized, "Water");
 }
 
-void Greenfilling::update_carbon_ema(double carbon_intensity)
+void Greenfilling::update_ema(double intensity, double & ema, bool & initialized, const char * label)
 {
-    if (!_carbon_ema_initialized)
+    if (!initialized)
     {
-        _carbon_ema = carbon_intensity;
-        _carbon_ema_initialized = true;
+        ema = intensity;
+        initialized = true;
         if (_greenfilling_debug)
-            LOG_F(INFO, "Carbon EMA initialized to %g", _carbon_ema);
+            LOG_F(INFO, "%s EMA initialized to %g", label, ema);
     }
     else
     {
-        _carbon_ema = _alpha * carbon_intensity + (1.0 - _alpha) * _carbon_ema;
+        ema = _alpha * intensity + (1.0 - _alpha) * ema;
         if (_greenfilling_debug)
-            LOG_F(INFO, "Carbon EMA updated to %g (current=%g)", _carbon_ema, carbon_intensity);
-    }
-}
-
-void Greenfilling::update_water_ema(double water_intensity)
-{
-    if (!_water_ema_initialized)
-    {
-        _water_ema = water_intensity;
-        _water_ema_initialized = true;
-        if (_greenfilling_debug)
-            LOG_F(INFO, "Water EMA initialized to %g", _water_ema);
-    }
-    else
-    {
-        _water_ema = _alpha * water_intensity + (1.0 - _alpha) * _water_ema;
-        if (_greenfilling_debug)
-            LOG_F(INFO, "Water EMA updated to %g (current=%g)", _water_ema, water_intensity);
+            LOG_F(INFO, "%s EMA updated to %g (current=%g)", label, ema, intensity);
     }
 }
 

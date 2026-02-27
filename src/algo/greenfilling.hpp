@@ -19,8 +19,7 @@ public:
                                 SortableJobOrder::CompareInformation * compare_info);
 
 private:
-    void update_carbon_ema(double carbon_intensity);
-    void update_water_ema(double water_intensity);
+    void update_ema(double intensity, double & ema, bool & initialized, const char * label);
     void query_intensities_if_needed(double date);
     bool should_allow_backfilling() const;
 
