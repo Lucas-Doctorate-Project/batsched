@@ -1,9 +1,10 @@
-cmake_minimum_required(VERSION 3.1.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
 
 project(batsched CXX)
-
-set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
@@ -22,8 +23,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "MinSizeRel" "RelWithDebInfo")
 endif()
 
-# Let's enable C++11
-set(CMAKE_CXX_STANDARD 11)
+# Keep CMake aligned with meson.build and current Boost requirements.
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Coverage
@@ -37,7 +38,7 @@ endif()
 
 # Dependencies
 ## Boost
-find_package(Boost 1.48 REQUIRED COMPONENTS regex locale)
+find_package(Boost 1.48 REQUIRED COMPONENTS regex locale program_options)
 include_directories(${Boost_INCLUDE_DIR})
 
 ## Intervalset
@@ -84,8 +85,9 @@ file(GLOB batsched_SRC
 add_executable(batsched ${batsched_SRC})
 
 target_link_libraries(batsched ${GMP_LIBRARIES}
-                      ${Boost_REGEX_LIBRARY_DEBUG}
-                      ${Boost_LOCALE_LIBRARY_DEBUG}
+                      Boost::regex
+                      Boost::locale
+                      Boost::program_options
                       ${INTERVALSET_LIBRARY}
                       ${LOGURU_LIBRARIES}
                       Threads::Threads
@@ -94,8 +96,6 @@ target_link_libraries(batsched ${GMP_LIBRARIES}
                       ${LIBEV_LIBRARY}
                       ${HIREDIS_LIBRARY}
                       ${ZMQ_LIBRARIES})
-
-target_link_libraries(batsched boost_program_options)
 
 # Installation
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/batsched
