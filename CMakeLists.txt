@@ -119,6 +119,20 @@ if (enable_warnings)
     endif()
 endif()
 
+##############
+# Unit tests #
+##############
+option(build_tests "Build unit tests with Catch2" OFF)
+if(build_tests)
+    find_package(Catch2 3 REQUIRED)
+    add_executable(batsched_tests
+        test/unit/test_greenfilling_v2.cpp)
+    target_include_directories(batsched_tests PRIVATE src)
+    target_link_libraries(batsched_tests Catch2::Catch2WithMain)
+    enable_testing()
+    add_test(NAME unit_tests COMMAND batsched_tests)
+endif()
+
 ####################
 # Batsched version #
 ####################
