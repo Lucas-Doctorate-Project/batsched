@@ -14,58 +14,41 @@ Greenfilling::Greenfilling(Workload * workload,
                            rapidjson::Document * variant_options) :
     EasyBackfilling(workload, decision, queue, selector, rjms_delay, variant_options)
 {
-    if (variant_options->HasMember("smoothing_factor"))
-        _smoothing_factor = (*variant_options)["smoothing_factor"].GetDouble();
+    if (variant_options->HasMember("tau"))
+        _tau = (*variant_options)["tau"].GetDouble();
 
-    if (variant_options->HasMember("ema_threshold"))
-        _ema_threshold = (*variant_options)["ema_threshold"].GetDouble();
+    if (variant_options->HasMember("carbon_min"))
+        _carbon_min = (*variant_options)["carbon_min"].GetDouble();
+
+    if (variant_options->HasMember("carbon_max"))
+        _carbon_max = (*variant_options)["carbon_max"].GetDouble();
+
+    if (variant_options->HasMember("water_min"))
+        _water_min = (*variant_options)["water_min"].GetDouble();
+
+    if (variant_options->HasMember("water_max"))
+        _water_max = (*variant_options)["water_max"].GetDouble();
 
     if (variant_options->HasMember("greenfilling_debug"))
         _greenfilling_debug = (*variant_options)["greenfilling_debug"].GetBool();
 
     if (_greenfilling_debug)
-        LOG_F(INFO, "Greenfilling initialized with smoothing_factor=%g, ema_threshold=%g", _smoothing_factor, _ema_threshold);
+        LOG_F(INFO, "Greenfilling initialized with tau=%g, carbon=[%g,%g], water=[%g,%g]",
+              _tau, _carbon_min, _carbon_max, _water_min, _water_max);
 }
 
 Greenfilling::~Greenfilling()
 {
 }
 
-void Greenfilling::on_simulation_start(double date, const rapidjson::Value & batsim_config)
-{
-    EasyBackfilling::on_simulation_start(date, batsim_config);
-    // Bootstrap the EMA before the first job arrives
-    _decision->add_query_carbon_intensity(date);
-    _decision->add_query_water_intensity(date);
-}
-
 void Greenfilling::on_answer_carbon_intensity(double date, double carbon_intensity)
 {
     ISchedulingAlgorithm::on_answer_carbon_intensity(date, carbon_intensity);
-    update_ema(carbon_intensity, _carbon_ema, _carbon_ema_initialized, "Carbon");
 }
 
 void Greenfilling::on_answer_water_intensity(double date, double water_intensity)
 {
     ISchedulingAlgorithm::on_answer_water_intensity(date, water_intensity);
-    update_ema(water_intensity, _water_ema, _water_ema_initialized, "Water");
-}
-
-void Greenfilling::update_ema(double intensity, double & ema, bool & initialized, const char * label)
-{
-    if (!initialized)
-    {
-        ema = intensity;
-        initialized = true;
-        if (_greenfilling_debug)
-            LOG_F(INFO, "%s EMA initialized to %g", label, ema);
-    }
-    else
-    {
-        ema = _smoothing_factor * intensity + (1.0 - _smoothing_factor) * ema;
-        if (_greenfilling_debug)
-            LOG_F(INFO, "%s EMA updated to %g (current=%g)", label, ema, intensity);
-    }
 }
 
 void Greenfilling::query_intensities_if_needed(double date)
@@ -77,20 +60,13 @@ void Greenfilling::query_intensities_if_needed(double date)
     }
 }
 
-bool Greenfilling::should_allow_backfilling() const
+int Greenfilling::compute_backfill_machines() const
 {
-    if (!_carbon_ema_initialized && !_water_ema_initialized)
-        return true;
-
-    if (_carbon_ema_initialized && !_water_ema_initialized)
-        return _carbon_intensity <= _ema_threshold * _carbon_ema;
-
-    if (!_carbon_ema_initialized && _water_ema_initialized)
-        return _water_intensity <= _ema_threshold * _water_ema;
-
-    // Both initialized: allow only if both metrics are at or below threshold * EMA
-    return (_carbon_intensity <= _ema_threshold * _carbon_ema) &&
-           (_water_intensity <= _ema_threshold * _water_ema);
+    int N_a = static_cast<int>(_schedule.begin()->available_machines.size());
+    return ::compute_backfill_machines(N_a,
+        _carbon_intensity, _carbon_min, _carbon_max,
+        _water_intensity, _water_min, _water_max,
+        _tau);
 }
 
 void Greenfilling::make_decisions(double date,
@@ -136,42 +112,41 @@ void Greenfilling::make_decisions(double date,
     const Job * priority_job_after = nullptr;
     sort_queue_while_handling_priority_job(priority_job_before, priority_job_after, update_info, compare_info);
 
-    // Determine whether backfilling is allowed based on intensity
-    bool allow_backfilling = should_allow_backfilling();
+    // Compute how many machines are available for backfilling
+    int backfill_budget = compute_backfill_machines();
 
     if (_greenfilling_debug)
     {
-        LOG_F(INFO, "Greenfilling decision at date=%g: allow_backfilling=%d (ema_threshold=%g)", date, (int)allow_backfilling, _ema_threshold);
-        LOG_F(INFO, "  Carbon: current=%g, ema=%g, threshold=%g, initialized=%d", _carbon_intensity, _carbon_ema, _ema_threshold * _carbon_ema, (int)_carbon_ema_initialized);
-        LOG_F(INFO, "  Water: current=%g, ema=%g, threshold=%g, initialized=%d", _water_intensity, _water_ema, _ema_threshold * _water_ema, (int)_water_ema_initialized);
+        LOG_F(INFO, "Greenfilling decision at date=%g: backfill_budget=%d", date, backfill_budget);
+        LOG_F(INFO, "  Carbon: current=%g, range=[%g,%g]", _carbon_intensity, _carbon_min, _carbon_max);
+        LOG_F(INFO, "  Water:  current=%g, range=[%g,%g]", _water_intensity, _water_min, _water_max);
     }
 
-    // If no resources have been released, try to backfill newly-queued jobs (if allowed)
+    // If no resources have been released, try to backfill newly-queued jobs
     if (_jobs_ended_recently.empty())
     {
-        if (allow_backfilling)
+        int nb_available_machines = static_cast<int>(_schedule.begin()->available_machines.size());
+
+        for (unsigned int i = 0; i < recently_queued_jobs.size() && nb_available_machines > 0 && backfill_budget > 0; ++i)
         {
-            int nb_available_machines = _schedule.begin()->available_machines.size();
+            const string & new_job_id = recently_queued_jobs[i];
+            const Job * new_job = (*_workload)[new_job_id];
 
-            for (unsigned int i = 0; i < recently_queued_jobs.size() && nb_available_machines > 0; ++i)
+            if (_queue->contains_job(new_job) &&
+                new_job != priority_job_after &&
+                new_job->nb_requested_resources <= nb_available_machines &&
+                new_job->nb_requested_resources <= backfill_budget)
             {
-                const string & new_job_id = recently_queued_jobs[i];
-                const Job * new_job = (*_workload)[new_job_id];
-
-                if (_queue->contains_job(new_job) &&
-                    new_job != priority_job_after &&
-                    new_job->nb_requested_resources <= nb_available_machines)
+                Schedule::JobAlloc alloc = _schedule.add_job_first_fit(new_job, _selector);
+                if (alloc.started_in_first_slice)
                 {
-                    Schedule::JobAlloc alloc = _schedule.add_job_first_fit(new_job, _selector);
-                    if (alloc.started_in_first_slice)
-                    {
-                        _decision->add_execute_job(new_job_id, alloc.used_machines, date);
-                        _queue->remove_job(new_job);
-                        nb_available_machines -= new_job->nb_requested_resources;
-                    }
-                    else
-                        _schedule.remove_job(new_job);
+                    _decision->add_execute_job(new_job_id, alloc.used_machines, date);
+                    _queue->remove_job(new_job);
+                    nb_available_machines -= new_job->nb_requested_resources;
+                    backfill_budget -= new_job->nb_requested_resources;
                 }
+                else
+                    _schedule.remove_job(new_job);
             }
         }
     }
@@ -179,7 +154,7 @@ void Greenfilling::make_decisions(double date,
     {
         // Some resources have been released; traverse the whole queue.
         auto job_it = _queue->begin();
-        int nb_available_machines = _schedule.begin()->available_machines.size();
+        int nb_available_machines = static_cast<int>(_schedule.begin()->available_machines.size());
 
         while (job_it != _queue->end() && nb_available_machines > 0)
         {
@@ -201,13 +176,14 @@ void Greenfilling::make_decisions(double date,
                 else
                     ++job_it;
             }
-            else if (allow_backfilling) // Non-priority job: only if backfilling allowed
+            else if (backfill_budget > 0 && job->nb_requested_resources <= backfill_budget)
             {
                 Schedule::JobAlloc alloc = _schedule.add_job_first_fit(job, _selector);
 
                 if (alloc.started_in_first_slice)
                 {
                     _decision->add_execute_job(job->id, alloc.used_machines, date);
+                    backfill_budget -= job->nb_requested_resources;
                     job_it = _queue->remove_job(job_it);
                 }
                 else
@@ -216,7 +192,7 @@ void Greenfilling::make_decisions(double date,
                     ++job_it;
                 }
             }
-            else // Backfilling blocked: skip non-priority job
+            else // Budget exhausted or job too large for remaining budget
             {
                 ++job_it;
             }
