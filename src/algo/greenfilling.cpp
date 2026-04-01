@@ -29,10 +29,10 @@ Greenfilling::Greenfilling(Workload * workload,
     if (variant_options->HasMember("water_max"))
         _water_max = (*variant_options)["water_max"].GetDouble();
 
-    if (variant_options->HasMember("greenfilling_debug"))
-        _greenfilling_debug = (*variant_options)["greenfilling_debug"].GetBool();
+    if (variant_options->HasMember("debug"))
+        _debug = (*variant_options)["debug"].GetBool();
 
-    if (_greenfilling_debug)
+    if (_debug)
         LOG_F(INFO, "Greenfilling initialized with tau=%g, carbon=[%g,%g], water=[%g,%g]",
               _tau, _carbon_min, _carbon_max, _water_min, _water_max);
 }
@@ -115,7 +115,7 @@ void Greenfilling::make_decisions(double date,
     // Compute how many machines are available for backfilling
     int backfill_budget = compute_backfill_machines();
 
-    if (_greenfilling_debug)
+    if (_debug)
     {
         LOG_F(INFO, "Greenfilling decision at date=%g: backfill_budget=%d", date, backfill_budget);
         LOG_F(INFO, "  Carbon: current=%g, range=[%g,%g]", _carbon_intensity, _carbon_min, _carbon_max);

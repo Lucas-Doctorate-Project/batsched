@@ -27,5 +27,5 @@ private:
     double _water_min  = 0.0;
     double _water_max  = 1.0;
 
-    bool _greenfilling_debug = false;
+    bool _debug = false;
 };
