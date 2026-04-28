@@ -1,6 +1,7 @@
 #pragma once
 
 #include "easy_bf.hpp"
+#include "./csv_parser.hpp"
 
 class Greenfilling : public EasyBackfilling
 {
@@ -21,7 +22,10 @@ public:
 private:
     void update_ema(double intensity, double & ema, bool & initialized, const char * label);
     void query_intensities_if_needed(double date);
-    bool should_allow_backfilling() const;
+    bool should_allow_backfilling(double date) const;
+
+    std::string _typical_intensities_file;
+    CSV_Parser _csv_parser;
 
     double _carbon_ema = 0.0;
     double _water_ema = 0.0;

@@ -75,7 +75,7 @@ void CSV_Parser::parse_csv()
     }
 }
 
-std::pair<double, double> CSV_Parser::get_intensities(double timestamp)
+std::pair<double, double> CSV_Parser::get_intensities(double timestamp) const
 {
     if (_data.empty())
         return {0.0, 0.0};
