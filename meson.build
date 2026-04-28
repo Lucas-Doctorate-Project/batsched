@@ -58,6 +58,8 @@ src = [
     'src/algo/filler.hpp',
     'src/algo/greenfilling.cpp',
     'src/algo/greenfilling.hpp',
+    'src/algo/csv_parser.cpp',
+    'src/algo/csv_parser.hpp',
     'src/algo/killer2.cpp',
     'src/algo/killer2.hpp',
     'src/algo/killer.cpp',

@@ -20,19 +20,11 @@ public:
                                 SortableJobOrder::CompareInformation * compare_info);
 
 private:
-    void update_ema(double intensity, double & ema, bool & initialized, const char * label);
     void query_intensities_if_needed(double date);
     bool should_allow_backfilling(double date) const;
 
     std::string _typical_intensities_file;
     CSV_Parser _csv_parser;
 
-    double _carbon_ema = 0.0;
-    double _water_ema = 0.0;
-    bool _carbon_ema_initialized = false;
-    bool _water_ema_initialized = false;
-
-    double _smoothing_factor = 0.3;
-    double _ema_threshold = 1.0;
     bool _greenfilling_debug = false;
 };
