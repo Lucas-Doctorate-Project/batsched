@@ -38,7 +38,10 @@ void CSV_Parser::parse_csv()
 
     // Always skip header line
     if (!getline(in, line))
+    {
+        _mx_carbon = _mx_water = _mn_carbon = _mn_water = 0.0;
         return; // empty file
+    }
 
     while (getline(in, line))
     {
@@ -99,16 +102,12 @@ std::pair<double, double> CSV_Parser::get_intensities(double timestamp) const
     return it->second;
 }
 
-double CSV_Parser::get_max_carbon_intensity()
+double CSV_Parser::get_max_carbon_intensity() const
 {
-    if (_data.empty())
-        return 0.0;
-
-    const double end = static_cast<double>(std::prev(_data.end())->first);
-    return get_max_carbon_intensity(0.0, end);
+    return _mx_carbon;
 }
 
-double CSV_Parser::get_max_carbon_intensity(double start, double end)
+double CSV_Parser::get_max_carbon_intensity(double start, double end) const
 {
     if (_data.empty())
         return 0.0;
@@ -133,16 +132,12 @@ double CSV_Parser::get_max_carbon_intensity(double start, double end)
     return mx;
 }
 
-double CSV_Parser::get_max_water_intensity()
+double CSV_Parser::get_max_water_intensity() const
 {
-    if (_data.empty())
-        return 0.0;
-
-    const double end = static_cast<double>(std::prev(_data.end())->first);
-    return get_max_water_intensity(0.0, end);
+    return _mx_water;
 }
 
-double CSV_Parser::get_max_water_intensity(double start, double end)
+double CSV_Parser::get_max_water_intensity(double start, double end) const
 {
     if (_data.empty())
         return 0.0;
@@ -167,16 +162,12 @@ double CSV_Parser::get_max_water_intensity(double start, double end)
     return mx;
 }
 
-double CSV_Parser::get_min_carbon_intensity()
+double CSV_Parser::get_min_carbon_intensity() const
 {
-    if (_data.empty())
-        return 0.0;
-
-    const double end = static_cast<double>(std::prev(_data.end())->first);
-    return get_min_carbon_intensity(0.0, end);
+    return _mn_carbon;
 }
 
-double CSV_Parser::get_min_carbon_intensity(double start, double end)
+double CSV_Parser::get_min_carbon_intensity(double start, double end) const
 {
     if (_data.empty())
         return 0.0;
@@ -201,16 +192,12 @@ double CSV_Parser::get_min_carbon_intensity(double start, double end)
     return mn;
 }
 
-double CSV_Parser::get_min_water_intensity()
+double CSV_Parser::get_min_water_intensity() const
 {
-    if (_data.empty())
-        return 0.0;
-
-    const double end = static_cast<double>(std::prev(_data.end())->first);
-    return get_min_water_intensity(0.0, end);
+    return _mn_water;
 }
 
-double CSV_Parser::get_min_water_intensity(double start, double end)
+double CSV_Parser::get_min_water_intensity(double start, double end) const
 {
     if (_data.empty())
         return 0.0;

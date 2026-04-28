@@ -12,17 +12,17 @@ public:
 
     std::pair<double, double> get_intensities(double timestamp) const;
 
-    double get_max_carbon_intensity();
-    double get_max_carbon_intensity(double start, double end);
+    double get_max_carbon_intensity() const;
+    double get_max_carbon_intensity(double start, double end) const;
 
-    double get_max_water_intensity();
-    double get_max_water_intensity(double start, double end);
+    double get_max_water_intensity() const;
+    double get_max_water_intensity(double start, double end) const;
 
-    double get_min_carbon_intensity();
-    double get_min_carbon_intensity(double start, double end);
+    double get_min_carbon_intensity() const;
+    double get_min_carbon_intensity(double start, double end) const;
 
-    double get_min_water_intensity();
-    double get_min_water_intensity(double start, double end);
+    double get_min_water_intensity() const;
+    double get_min_water_intensity(double start, double end) const;
 
 private:
     std::string _filename;
