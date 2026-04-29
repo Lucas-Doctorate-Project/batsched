@@ -23,6 +23,11 @@ private:
     void query_intensities_if_needed(double date);
     bool should_allow_backfilling(double date) const;
 
+    double _min_effective_carbon_intensity = 0.0;
+    double _min_effective_water_intensity = 0.0;
+    double _max_effective_carbon_intensity = 0.0;
+    double _max_effective_water_intensity = 0.0;
+
     std::string _typical_intensities_file;
     CSV_Parser _csv_parser;
 

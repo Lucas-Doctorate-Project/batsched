@@ -20,11 +20,30 @@ Greenfilling::Greenfilling(Workload * workload,
         variant_options->HasMember("typical_intensities_file")
             ? (*variant_options)["typical_intensities_file"].GetString()
             : ""),
+    _min_effective_carbon_intensity(
+        variant_options->HasMember("min_effective_carbon_intensity")
+            ? (*variant_options)["min_effective_carbon_intensity"].GetDouble()
+            : 0.0),
+    _min_effective_water_intensity(
+        variant_options->HasMember("min_effective_water_intensity")
+            ? (*variant_options)["min_effective_water_intensity"].GetDouble()
+            : 0.0),
+    _max_effective_carbon_intensity(
+        variant_options->HasMember("max_effective_carbon_intensity")
+            ? (*variant_options)["max_effective_carbon_intensity"].GetDouble()
+            : 0.0),
+    _max_effective_water_intensity(
+        variant_options->HasMember("max_effective_water_intensity")
+            ? (*variant_options)["max_effective_water_intensity"].GetDouble()
+            : 0.0
+    ),
+    _greenfilling_debug(
+        variant_options->HasMember("greenfilling_debug")
+            ? (*variant_options)["greenfilling_debug"].GetBool()
+            : false
+    ),
     _csv_parser(_typical_intensities_file)
 {
-    if (variant_options->HasMember("greenfilling_debug"))
-        _greenfilling_debug = (*variant_options)["greenfilling_debug"].GetBool();
-
     if (_greenfilling_debug)
         LOG_F(INFO, "Greenfilling initialized with typical_intensitites_file=%s", _typical_intensities_file.c_str());
 }
@@ -66,12 +85,18 @@ bool Greenfilling::should_allow_backfilling(double date) const
     double carbon_threshold = typical_intensities.first;
     double water_threshold = typical_intensities.second;
 
+    double normalized_carbon_intensity = (_carbon_intensity - _min_effective_carbon_intensity) / (_max_effective_carbon_intensity - _min_effective_carbon_intensity);
+    double normalized_water_intensity = (_water_intensity - _min_effective_water_intensity) / (_max_effective_water_intensity - _min_effective_water_intensity);
+
+    double normalized_carbon_threshold = (carbon_threshold - _csv_parser.get_min_carbon_intensity()) / (_csv_parser.get_max_carbon_intensity() - _csv_parser.get_min_carbon_intensity());
+    double normalized_water_threshold = (water_threshold - _csv_parser.get_min_water_intensity()) / (_csv_parser.get_max_water_intensity() - _csv_parser.get_min_water_intensity());
+
     if (_greenfilling_debug)
-        LOG_F(INFO, "typical_intensities(%.3lf, %.3lf); current_intensities(%.3lf, %.3lf)", carbon_threshold, water_threshold, _carbon_intensity, _water_intensity);
+        LOG_F(INFO, "norm_typical_intensities(%.5lf, %.5lf); norm_current_intensities(%.5lf, %.5lf)", normalized_carbon_threshold, normalized_water_threshold, normalized_carbon_intensity, normalized_water_intensity);
 
     // Both initialized: allow only if both metrics are at or below threshold 
-    return (_carbon_intensity <= carbon_threshold) &&
-           (_water_intensity <= water_threshold);
+    return (normalized_carbon_intensity <= normalized_carbon_threshold) &&
+           (normalized_water_intensity <= normalized_water_threshold);
 }
 
 void Greenfilling::make_decisions(double date,
