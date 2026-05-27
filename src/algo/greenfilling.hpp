@@ -23,6 +23,8 @@ private:
     void sample_intensities(double date);
     bool should_allow_backfilling() const;
 
+    enum class Combinator { And, Or };
+
     std::unique_ptr<CSV_Parser> _intensity_source;
 
     double _carbon_ema = 0.0;
@@ -32,5 +34,6 @@ private:
 
     double _smoothing_factor = 0.3;
     double _ema_threshold = 1.0;
+    Combinator _combinator = Combinator::And;
     bool _greenfilling_debug = false;
 };

@@ -34,12 +34,26 @@ Greenfilling::Greenfilling(Workload * workload,
     if (variant_options->HasMember("ema_threshold"))
         _ema_threshold = (*variant_options)["ema_threshold"].GetDouble();
 
+    if (variant_options->HasMember("backfilling_combinator"))
+    {
+        PPK_ASSERT_ERROR((*variant_options)["backfilling_combinator"].IsString(),
+                         "Greenfilling: option 'backfilling_combinator' must be a string ('and' or 'or')");
+        string combinator_str = (*variant_options)["backfilling_combinator"].GetString();
+        if (combinator_str == "and")
+            _combinator = Combinator::And;
+        else if (combinator_str == "or")
+            _combinator = Combinator::Or;
+        else
+            PPK_ASSERT_ERROR(false, "Greenfilling: unknown 'backfilling_combinator' value '%s' (expected 'and' or 'or')", combinator_str.c_str());
+    }
+
     if (variant_options->HasMember("greenfilling_debug"))
         _greenfilling_debug = (*variant_options)["greenfilling_debug"].GetBool();
 
     if (_greenfilling_debug)
-        LOG_F(INFO, "Greenfilling initialized with intensity_trace='%s', intensity_zone='%s', smoothing_factor=%g, ema_threshold=%g",
-              intensity_trace.c_str(), intensity_zone.c_str(), _smoothing_factor, _ema_threshold);
+        LOG_F(INFO, "Greenfilling initialized with intensity_trace='%s', intensity_zone='%s', smoothing_factor=%g, ema_threshold=%g, combinator=%s",
+              intensity_trace.c_str(), intensity_zone.c_str(), _smoothing_factor, _ema_threshold,
+              _combinator == Combinator::And ? "and" : "or");
 }
 
 Greenfilling::~Greenfilling()
@@ -97,9 +111,11 @@ bool Greenfilling::should_allow_backfilling() const
     if (!_carbon_ema_initialized && _water_ema_initialized)
         return _water_intensity <= _ema_threshold * _water_ema;
 
-    // Both initialized: allow only if both metrics are at or below threshold * EMA
-    return (_carbon_intensity <= _ema_threshold * _carbon_ema) &&
-           (_water_intensity <= _ema_threshold * _water_ema);
+    // Both initialized: combine the two checks according to the configured combinator
+    const bool carbon_ok = _carbon_intensity <= _ema_threshold * _carbon_ema;
+    const bool water_ok = _water_intensity <= _ema_threshold * _water_ema;
+    return _combinator == Combinator::And ? (carbon_ok && water_ok)
+                                          : (carbon_ok || water_ok);
 }
 
 void Greenfilling::make_decisions(double date,
@@ -149,7 +165,8 @@ void Greenfilling::make_decisions(double date,
 
     if (_greenfilling_debug)
     {
-        LOG_F(INFO, "Greenfilling decision at date=%g: allow_backfilling=%d (ema_threshold=%g)", date, (int)allow_backfilling, _ema_threshold);
+        LOG_F(INFO, "Greenfilling decision at date=%g: allow_backfilling=%d (ema_threshold=%g, combinator=%s)", date, (int)allow_backfilling, _ema_threshold,
+              _combinator == Combinator::And ? "and" : "or");
         LOG_F(INFO, "  Carbon: current=%g, ema=%g, threshold=%g, initialized=%d", _carbon_intensity, _carbon_ema, _ema_threshold * _carbon_ema, (int)_carbon_ema_initialized);
         LOG_F(INFO, "  Water: current=%g, ema=%g, threshold=%g, initialized=%d", _water_intensity, _water_ema, _ema_threshold * _water_ema, (int)_water_ema_initialized);
     }
