@@ -14,6 +14,20 @@ Greenfilling::Greenfilling(Workload * workload,
                            rapidjson::Document * variant_options) :
     EasyBackfilling(workload, decision, queue, selector, rjms_delay, variant_options)
 {
+    PPK_ASSERT_ERROR(variant_options->HasMember("intensity_trace"),
+                     "Greenfilling: required option 'intensity_trace' (CSV path) is missing");
+    PPK_ASSERT_ERROR((*variant_options)["intensity_trace"].IsString(),
+                     "Greenfilling: option 'intensity_trace' must be a string");
+    string intensity_trace = (*variant_options)["intensity_trace"].GetString();
+
+    PPK_ASSERT_ERROR(variant_options->HasMember("intensity_zone"),
+                     "Greenfilling: required option 'intensity_zone' is missing");
+    PPK_ASSERT_ERROR((*variant_options)["intensity_zone"].IsString(),
+                     "Greenfilling: option 'intensity_zone' must be a string");
+    string intensity_zone = (*variant_options)["intensity_zone"].GetString();
+
+    _intensity_source = std::make_unique<CSV_Parser>(intensity_trace, intensity_zone);
+
     if (variant_options->HasMember("smoothing_factor"))
         _smoothing_factor = (*variant_options)["smoothing_factor"].GetDouble();
 
@@ -24,7 +38,8 @@ Greenfilling::Greenfilling(Workload * workload,
         _greenfilling_debug = (*variant_options)["greenfilling_debug"].GetBool();
 
     if (_greenfilling_debug)
-        LOG_F(INFO, "Greenfilling initialized with smoothing_factor=%g, ema_threshold=%g", _smoothing_factor, _ema_threshold);
+        LOG_F(INFO, "Greenfilling initialized with intensity_trace='%s', intensity_zone='%s', smoothing_factor=%g, ema_threshold=%g",
+              intensity_trace.c_str(), intensity_zone.c_str(), _smoothing_factor, _ema_threshold);
 }
 
 Greenfilling::~Greenfilling()
@@ -34,21 +49,7 @@ Greenfilling::~Greenfilling()
 void Greenfilling::on_simulation_start(double date, const rapidjson::Value & batsim_config)
 {
     EasyBackfilling::on_simulation_start(date, batsim_config);
-    // Bootstrap the EMA before the first job arrives
-    _decision->add_query_carbon_intensity(date);
-    _decision->add_query_water_intensity(date);
-}
-
-void Greenfilling::on_answer_carbon_intensity(double date, double carbon_intensity)
-{
-    ISchedulingAlgorithm::on_answer_carbon_intensity(date, carbon_intensity);
-    update_ema(carbon_intensity, _carbon_ema, _carbon_ema_initialized, "Carbon");
-}
-
-void Greenfilling::on_answer_water_intensity(double date, double water_intensity)
-{
-    ISchedulingAlgorithm::on_answer_water_intensity(date, water_intensity);
-    update_ema(water_intensity, _water_ema, _water_ema_initialized, "Water");
+    sample_intensities(date);
 }
 
 void Greenfilling::update_ema(double intensity, double & ema, bool & initialized, const char * label)
@@ -68,12 +69,20 @@ void Greenfilling::update_ema(double intensity, double & ema, bool & initialized
     }
 }
 
-void Greenfilling::query_intensities_if_needed(double date)
+void Greenfilling::sample_intensities(double date)
 {
-    if (!_jobs_released_recently.empty() || !_jobs_ended_recently.empty())
+    double carbon = _intensity_source->get_value(date, "carbon_intensity");
+    double water = _intensity_source->get_value(date, "water_intensity");
+
+    if (!std::isnan(carbon))
     {
-        _decision->add_query_carbon_intensity(date);
-        _decision->add_query_water_intensity(date);
+        _carbon_intensity = carbon;
+        update_ema(carbon, _carbon_ema, _carbon_ema_initialized, "Carbon");
+    }
+    if (!std::isnan(water))
+    {
+        _water_intensity = water;
+        update_ema(water, _water_ema, _water_ema_initialized, "Water");
     }
 }
 
@@ -97,8 +106,7 @@ void Greenfilling::make_decisions(double date,
                                   SortableJobOrder::UpdateInformation * update_info,
                                   SortableJobOrder::CompareInformation * compare_info)
 {
-    // Query intensities on any scheduling event (job arrival or completion)
-    query_intensities_if_needed(date);
+    sample_intensities(date);
 
     const Job * priority_job_before = _queue->first_job_or_nullptr();
 

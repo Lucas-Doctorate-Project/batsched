@@ -30,6 +30,8 @@ src = [
     'src/algo/conservative_bf.hpp',
     'src/algo/crasher.cpp',
     'src/algo/crasher.hpp',
+    'src/algo/csv_parser.cpp',
+    'src/algo/csv_parser.hpp',
     'src/algo/easy_bf.cpp',
     'src/algo/easy_bf_fast.cpp',
     'src/algo/easy_bf_fast.hpp',
