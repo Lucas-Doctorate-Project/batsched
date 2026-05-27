@@ -27,7 +27,7 @@ let
       ];
       mesonFlags = []
         ++ pkgs.lib.optional doCoverage [ "-Db_coverage=true" ];
-      nativeBuildInputs = with kapack; [pkgs.meson pkgs.ninja pkgs.pkgconfig
+      nativeBuildInputs = with kapack; [pkgs.meson pkgs.ninja pkgs.pkg-config
         pkgs.boost pkgs.gmp pkgs.rapidjson intervalset loguru pkgs.cppzmq pkgs.zeromq];
       # Debug build, without any Nix stripping magic.
       mesonBuildType = "debug";
