@@ -2,36 +2,34 @@
 
 #include <map>
 #include <string>
-#include <utility> // std::pair
 
 class CSV_Parser
 {
 public:
-    explicit CSV_Parser(const std::string & file);
+    CSV_Parser(const std::string & file, const std::string & zone);
     ~CSV_Parser();
 
-    std::pair<double, double> get_intensities(double timestamp) const;
+    double get_value(double timestamp, const std::string & property) const;
 
-    double get_max_carbon_intensity() const;
-    double get_max_carbon_intensity(double start, double end) const;
+    double get_sum(const std::string & property, double start, double end) const;
+    double get_sampling_period(const std::string & property) const;
 
-    double get_max_water_intensity() const;
-    double get_max_water_intensity(double start, double end) const;
+    double get_max(const std::string & property) const;
+    double get_max(const std::string & property, double start, double end) const;
 
-    double get_min_carbon_intensity() const;
-    double get_min_carbon_intensity(double start, double end) const;
-
-    double get_min_water_intensity() const;
-    double get_min_water_intensity(double start, double end) const;
+    double get_min(const std::string & property) const;
+    double get_min(const std::string & property, double start, double end) const;
 
 private:
     std::string _filename;
-    double _mx_carbon = 0.0;
-    double _mx_water = 0.0;
-    double _mn_carbon = 0.0;
-    double _mn_water = 0.0;
-    std::map<int, std::pair<double, double>> _data;
+    std::string _zone;
+    std::map<std::string, std::map<double, double>> _series;
+    std::map<std::string, std::map<double, double>> _prefix_integrals;
+    std::map<std::string, double> _sampling_periods;
 
     static void trim_cr(std::string & s);
+    static void strip_quotes(std::string & s);
     void parse_csv();
+    void build_integrals();
+    double integral_until(const std::string & property, double timestamp) const;
 };

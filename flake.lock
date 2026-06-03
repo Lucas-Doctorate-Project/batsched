@@ -1,0 +1,45 @@
+{
+  "nodes": {
+    "kapack": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1756835562,
+        "narHash": "sha256-2nnLfqH1wfjzJVoA8KqY4eSAPI+0Mo7YnkZdFVIMpLY=",
+        "owner": "oar-team",
+        "repo": "nur-kapack",
+        "rev": "774b7f56c3efc93adb73ee82a62faf5dc2fce112",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oar-team",
+        "ref": "master",
+        "repo": "nur-kapack",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1779560665,
+        "narHash": "sha256-tpyBcxPpcQb8ukyNF7DoCwfSY3VPsxHoYwj00Cayv5o=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "64c08a7ca051951c8eae34e3e3cb1e202fe36786",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "kapack": "kapack",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
