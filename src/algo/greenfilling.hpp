@@ -19,21 +19,19 @@ public:
                                 SortableJobOrder::CompareInformation * compare_info);
 
 private:
-    void update_ema(double intensity, double & ema, bool & initialized, const char * label);
-    void sample_intensities(double date);
+    void update_ema(double intensity);
+    void sample_intensity(double date);
     bool should_allow_backfilling() const;
 
-    enum class Combinator { And, Or };
+    enum class Signal { Carbon, Water };
 
     std::unique_ptr<CSV_Parser> _intensity_source;
+    Signal _signal = Signal::Carbon;
 
-    double _carbon_ema = 0.0;
-    double _water_ema = 0.0;
-    bool _carbon_ema_initialized = false;
-    bool _water_ema_initialized = false;
+    double _intensity = 0.0;
+    double _ema = 0.0;
+    bool _ema_initialized = false;
 
     double _smoothing_factor = 0.3;
-    double _ema_threshold = 1.0;
-    Combinator _combinator = Combinator::And;
     bool _greenfilling_debug = false;
 };

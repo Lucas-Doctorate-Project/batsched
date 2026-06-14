@@ -28,32 +28,29 @@ Greenfilling::Greenfilling(Workload * workload,
 
     _intensity_source = std::make_unique<CSV_Parser>(intensity_trace, intensity_zone);
 
+    if (variant_options->HasMember("signal"))
+    {
+        PPK_ASSERT_ERROR((*variant_options)["signal"].IsString(),
+                         "Greenfilling: option 'signal' must be a string ('carbon' or 'water')");
+        string signal_str = (*variant_options)["signal"].GetString();
+        if (signal_str == "carbon")
+            _signal = Signal::Carbon;
+        else if (signal_str == "water")
+            _signal = Signal::Water;
+        else
+            PPK_ASSERT_ERROR(false, "Greenfilling: unknown 'signal' value '%s' (expected 'carbon' or 'water')", signal_str.c_str());
+    }
+
     if (variant_options->HasMember("smoothing_factor"))
         _smoothing_factor = (*variant_options)["smoothing_factor"].GetDouble();
-
-    if (variant_options->HasMember("ema_threshold"))
-        _ema_threshold = (*variant_options)["ema_threshold"].GetDouble();
-
-    if (variant_options->HasMember("backfilling_combinator"))
-    {
-        PPK_ASSERT_ERROR((*variant_options)["backfilling_combinator"].IsString(),
-                         "Greenfilling: option 'backfilling_combinator' must be a string ('and' or 'or')");
-        string combinator_str = (*variant_options)["backfilling_combinator"].GetString();
-        if (combinator_str == "and")
-            _combinator = Combinator::And;
-        else if (combinator_str == "or")
-            _combinator = Combinator::Or;
-        else
-            PPK_ASSERT_ERROR(false, "Greenfilling: unknown 'backfilling_combinator' value '%s' (expected 'and' or 'or')", combinator_str.c_str());
-    }
 
     if (variant_options->HasMember("greenfilling_debug"))
         _greenfilling_debug = (*variant_options)["greenfilling_debug"].GetBool();
 
     if (_greenfilling_debug)
-        LOG_F(INFO, "Greenfilling initialized with intensity_trace='%s', intensity_zone='%s', smoothing_factor=%g, ema_threshold=%g, combinator=%s",
-              intensity_trace.c_str(), intensity_zone.c_str(), _smoothing_factor, _ema_threshold,
-              _combinator == Combinator::And ? "and" : "or");
+        LOG_F(INFO, "Greenfilling initialized with intensity_trace='%s', intensity_zone='%s', signal=%s, smoothing_factor=%g",
+              intensity_trace.c_str(), intensity_zone.c_str(),
+              _signal == Signal::Carbon ? "carbon" : "water", _smoothing_factor);
 }
 
 Greenfilling::~Greenfilling()
@@ -63,66 +60,51 @@ Greenfilling::~Greenfilling()
 void Greenfilling::on_simulation_start(double date, const rapidjson::Value & batsim_config)
 {
     EasyBackfilling::on_simulation_start(date, batsim_config);
-    sample_intensities(date);
+    sample_intensity(date);
 }
 
-void Greenfilling::update_ema(double intensity, double & ema, bool & initialized, const char * label)
+void Greenfilling::update_ema(double intensity)
 {
-    if (!initialized)
+    if (!_ema_initialized)
     {
-        ema = intensity;
-        initialized = true;
+        _ema = intensity;
+        _ema_initialized = true;
         if (_greenfilling_debug)
-            LOG_F(INFO, "%s EMA initialized to %g", label, ema);
+            LOG_F(INFO, "EMA initialized to %g", _ema);
     }
     else
     {
-        ema = _smoothing_factor * intensity + (1.0 - _smoothing_factor) * ema;
+        _ema = _smoothing_factor * intensity + (1.0 - _smoothing_factor) * _ema;
         if (_greenfilling_debug)
-            LOG_F(INFO, "%s EMA updated to %g (current=%g)", label, ema, intensity);
+            LOG_F(INFO, "EMA updated to %g (current=%g)", _ema, intensity);
     }
 }
 
-void Greenfilling::sample_intensities(double date)
+void Greenfilling::sample_intensity(double date)
 {
-    double carbon = _intensity_source->get_value(date, "carbon_intensity");
-    double water = _intensity_source->get_value(date, "water_intensity");
+    const char * column = _signal == Signal::Carbon ? "carbon_intensity" : "water_intensity";
+    double value = _intensity_source->get_value(date, column);
 
-    if (!std::isnan(carbon))
+    if (!std::isnan(value))
     {
-        _carbon_intensity = carbon;
-        update_ema(carbon, _carbon_ema, _carbon_ema_initialized, "Carbon");
-    }
-    if (!std::isnan(water))
-    {
-        _water_intensity = water;
-        update_ema(water, _water_ema, _water_ema_initialized, "Water");
+        _intensity = value;
+        update_ema(value);
     }
 }
 
 bool Greenfilling::should_allow_backfilling() const
 {
-    if (!_carbon_ema_initialized && !_water_ema_initialized)
+    if (!_ema_initialized)
         return true;
 
-    if (_carbon_ema_initialized && !_water_ema_initialized)
-        return _carbon_intensity <= _ema_threshold * _carbon_ema;
-
-    if (!_carbon_ema_initialized && _water_ema_initialized)
-        return _water_intensity <= _ema_threshold * _water_ema;
-
-    // Both initialized: combine the two checks according to the configured combinator
-    const bool carbon_ok = _carbon_intensity <= _ema_threshold * _carbon_ema;
-    const bool water_ok = _water_intensity <= _ema_threshold * _water_ema;
-    return _combinator == Combinator::And ? (carbon_ok && water_ok)
-                                          : (carbon_ok || water_ok);
+    return _intensity <= _ema;
 }
 
 void Greenfilling::make_decisions(double date,
                                   SortableJobOrder::UpdateInformation * update_info,
                                   SortableJobOrder::CompareInformation * compare_info)
 {
-    sample_intensities(date);
+    sample_intensity(date);
 
     const Job * priority_job_before = _queue->first_job_or_nullptr();
 
@@ -165,10 +147,9 @@ void Greenfilling::make_decisions(double date,
 
     if (_greenfilling_debug)
     {
-        LOG_F(INFO, "Greenfilling decision at date=%g: allow_backfilling=%d (ema_threshold=%g, combinator=%s)", date, (int)allow_backfilling, _ema_threshold,
-              _combinator == Combinator::And ? "and" : "or");
-        LOG_F(INFO, "  Carbon: current=%g, ema=%g, threshold=%g, initialized=%d", _carbon_intensity, _carbon_ema, _ema_threshold * _carbon_ema, (int)_carbon_ema_initialized);
-        LOG_F(INFO, "  Water: current=%g, ema=%g, threshold=%g, initialized=%d", _water_intensity, _water_ema, _ema_threshold * _water_ema, (int)_water_ema_initialized);
+        LOG_F(INFO, "Greenfilling decision at date=%g: allow_backfilling=%d (signal=%s)",
+              date, (int)allow_backfilling, _signal == Signal::Carbon ? "carbon" : "water");
+        LOG_F(INFO, "  intensity=%g, ema=%g, initialized=%d", _intensity, _ema, (int)_ema_initialized);
     }
 
     // If no resources have been released, try to backfill newly-queued jobs (if allowed)
