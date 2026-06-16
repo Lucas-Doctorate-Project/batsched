@@ -534,8 +534,10 @@ void run(Network & n, ISchedulingAlgorithm * algo, SchedulingDecision & d,
 
         bool requested_callback_only = requested_callback_received && (events_array.Size() == 1);
 
-        // make_decisions is not called if (!call_make_decisions_on_single_nop && single_nop_received)
-        if (!(!call_make_decisions_on_single_nop && requested_callback_only))
+        // After SIMULATION_ENDS, only send the empty acknowledgement below.
+        // Also skip make_decisions if this message is just a callback.
+        if (!simulation_finished &&
+            !(!call_make_decisions_on_single_nop && requested_callback_only))
         {
             SortableJobOrder::UpdateInformation update_info(current_date);
             algo->make_decisions(message_date, &update_info, compare_info);
