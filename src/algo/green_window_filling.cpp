@@ -26,9 +26,8 @@ GreenWindowFilling::GreenWindowFilling(Workload * workload,
     _intensity_trace(get_intensity_trace_option(variant_options)),
     _intensity_zone(get_required_string_option(variant_options, "intensity_zone")),
     _csv_parser(_intensity_trace, _intensity_zone),
+    _signal_property(get_signal_property_option(variant_options)),
     _planning_horizon(get_required_positive_double_option(variant_options, "planning_horizon_seconds")),
-    _carbon_weight(get_optional_nonnegative_double_option(variant_options, "carbon_weight", 1.0)),
-    _water_weight(get_optional_nonnegative_double_option(variant_options, "water_weight", 1.0)),
     _green_window_filling_debug(get_optional_bool_option(variant_options, "green_window_filling_debug", false))
 {
     if (variant_options->HasMember("window_step_seconds"))
@@ -43,9 +42,7 @@ GreenWindowFilling::GreenWindowFilling(Workload * workload,
     }
     else
     {
-        double sampling_period = _csv_parser.get_sampling_period(CARBON_INTENSITY_PROPERTY);
-        if (std::isnan(sampling_period))
-            sampling_period = _csv_parser.get_sampling_period(WATER_INTENSITY_PROPERTY);
+        double sampling_period = _csv_parser.get_sampling_period(_signal_property);
 
         PPK_ASSERT_ERROR(sampling_period > 0.0,
                          "Invalid options: 'window_step_seconds' is missing and no regular CSV sampling period "
@@ -56,14 +53,12 @@ GreenWindowFilling::GreenWindowFilling(Workload * workload,
     if (_green_window_filling_debug)
     {
         LOG_F(INFO, "GreenWindowFilling initialized with intensity_trace=%s, intensity_zone=%s, "
-                    "planning_horizon_seconds=%g, window_step_seconds=%g, "
-                    "carbon_weight=%g, water_weight=%g",
+                    "signal=%s, planning_horizon_seconds=%g, window_step_seconds=%g",
               _intensity_trace.c_str(),
               _intensity_zone.c_str(),
+              _signal_property.c_str(),
               (double)_planning_horizon,
-              (double)_window_step,
-              _carbon_weight,
-              _water_weight);
+              (double)_window_step);
     }
 }
 
@@ -90,6 +85,21 @@ std::string GreenWindowFilling::get_intensity_trace_option(rapidjson::Document *
     return get_required_string_option(variant_options, "typical_intensities_file");
 }
 
+std::string GreenWindowFilling::get_signal_property_option(rapidjson::Document * variant_options)
+{
+    std::string signal = get_required_string_option(variant_options, "signal");
+
+    if (signal == "carbon")
+        return CARBON_INTENSITY_PROPERTY;
+    if (signal == "water")
+        return WATER_INTENSITY_PROPERTY;
+
+    PPK_ASSERT_ERROR(false,
+                     "Invalid options: 'signal' should be either 'carbon' or 'water' (got '%s')",
+                     signal.c_str());
+    return "";
+}
+
 double GreenWindowFilling::get_required_positive_double_option(rapidjson::Document * variant_options,
                                                                const char * option_name)
 {
@@ -101,21 +111,6 @@ double GreenWindowFilling::get_required_positive_double_option(rapidjson::Docume
     double value = (*variant_options)[option_name].GetDouble();
     PPK_ASSERT_ERROR(value > 0.0,
                      "Invalid options: '%s' should be strictly positive (got %g)", option_name, value);
-    return value;
-}
-
-double GreenWindowFilling::get_optional_nonnegative_double_option(rapidjson::Document * variant_options,
-                                                                  const char * option_name,
-                                                                  double default_value)
-{
-    if (!variant_options->HasMember(option_name))
-        return default_value;
-
-    PPK_ASSERT_ERROR((*variant_options)[option_name].IsNumber(),
-                     "Invalid options: '%s' should be a number", option_name);
-    double value = (*variant_options)[option_name].GetDouble();
-    PPK_ASSERT_ERROR(value >= 0.0,
-                     "Invalid options: '%s' should be non-negative (got %g)", option_name, value);
     return value;
 }
 
@@ -363,20 +358,14 @@ double GreenWindowFilling::compute_window_score(const Job * job, Rational begin,
     double begin_date = (double)begin;
     double end_date = (double)end;
     double duration = end_date - begin_date;
-    double carbon_sum = _csv_parser.get_sum(CARBON_INTENSITY_PROPERTY, begin_date, end_date);
-    double water_sum = _csv_parser.get_sum(WATER_INTENSITY_PROPERTY, begin_date, end_date);
+    double intensity_sum = _csv_parser.get_sum(_signal_property, begin_date, end_date);
 
-    double normalized_carbon_sum = normalize_intensity_sum(carbon_sum,
-                                                           _csv_parser.get_min(CARBON_INTENSITY_PROPERTY),
-                                                           _csv_parser.get_max(CARBON_INTENSITY_PROPERTY),
-                                                           duration);
-    double normalized_water_sum = normalize_intensity_sum(water_sum,
-                                                          _csv_parser.get_min(WATER_INTENSITY_PROPERTY),
-                                                          _csv_parser.get_max(WATER_INTENSITY_PROPERTY),
-                                                          duration);
+    double normalized_intensity_sum = normalize_intensity_sum(intensity_sum,
+                                                              _csv_parser.get_min(_signal_property),
+                                                              _csv_parser.get_max(_signal_property),
+                                                              duration);
 
-    return (double)job->nb_requested_resources *
-           ((_carbon_weight * normalized_carbon_sum) + (_water_weight * normalized_water_sum));
+    return (double)job->nb_requested_resources * normalized_intensity_sum;
 }
 
 double GreenWindowFilling::normalize_intensity_sum(double intensity_sum,

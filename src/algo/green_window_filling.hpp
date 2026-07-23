@@ -32,11 +32,9 @@ private:
     static std::string get_required_string_option(rapidjson::Document * variant_options,
                                                   const char * option_name);
     static std::string get_intensity_trace_option(rapidjson::Document * variant_options);
+    static std::string get_signal_property_option(rapidjson::Document * variant_options);
     static double get_required_positive_double_option(rapidjson::Document * variant_options,
                                                       const char * option_name);
-    static double get_optional_nonnegative_double_option(rapidjson::Document * variant_options,
-                                                        const char * option_name,
-                                                        double default_value);
     static bool get_optional_bool_option(rapidjson::Document * variant_options,
                                          const char * option_name,
                                          bool default_value);
@@ -64,10 +62,12 @@ private:
     std::string _intensity_zone;
     CSV_Parser _csv_parser;
 
+    // Which environmental signal drives every scheduling decision: either
+    // CARBON_INTENSITY_PROPERTY or WATER_INTENSITY_PROPERTY (see the .cpp).
+    std::string _signal_property;
+
     Rational _planning_horizon = 0;
     Rational _window_step = 0;
-    double _carbon_weight = 1.0;
-    double _water_weight = 1.0;
 
     bool _green_window_filling_debug = false;
     std::set<double> _requested_call_dates;
