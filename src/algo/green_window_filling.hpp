@@ -52,6 +52,8 @@ private:
     void clear_reservation();
 
     WindowCandidate find_best_window(const Job * job, Rational date) const;
+    Rational first_grid_point_after(Rational date) const;
+    void consider_window(const Job * job, Rational begin, WindowCandidate & best) const;
     bool find_exact_allocation(const Job * job, Rational begin, Rational end, IntervalSet & machines) const;
     IntervalSet available_machines_during_period(Rational begin, Rational end) const;
 

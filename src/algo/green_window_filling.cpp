@@ -30,6 +30,8 @@ GreenWindowFilling::GreenWindowFilling(Workload * workload,
     _planning_horizon(get_required_positive_double_option(variant_options, "planning_horizon_seconds")),
     _green_window_filling_debug(get_optional_bool_option(variant_options, "green_window_filling_debug", false))
 {
+    // Candidates land on absolute multiples of this step, so they only line up
+    // with the trace's intensity changes while it matches the sampling period.
     if (variant_options->HasMember("window_step_seconds"))
     {
         PPK_ASSERT_ERROR((*variant_options)["window_step_seconds"].IsNumber(),
@@ -325,26 +327,56 @@ GreenWindowFilling::WindowCandidate GreenWindowFilling::find_best_window(const J
     if (date + job->walltime > horizon_end)
         return best;
 
-    for (Rational begin = date; begin + job->walltime <= horizon_end; begin += _window_step)
+    // t0 is always a candidate, even though it seldom sits on the trace grid.
+    consider_window(job, date, best);
+
+    // Then the sample boundaries the job can still finish by. Intensity is flat
+    // in between, so starting mid-block only slides the window off the clean
+    // block it is trying to cover.
+    for (Rational begin = first_grid_point_after(date);
+         begin + job->walltime <= horizon_end;
+         begin += _window_step)
     {
-        Rational end = begin + job->walltime;
-        IntervalSet machines;
-
-        if (!find_exact_allocation(job, begin, end, machines))
-            continue;
-
-        double score = compute_window_score(job, begin, end);
-        if (!best.found || score < best.score - 1e-9)
-        {
-            best.found = true;
-            best.begin = begin;
-            best.end = end;
-            best.score = score;
-            best.machines = machines;
-        }
+        consider_window(job, begin, best);
     }
 
     return best;
+}
+
+Rational GreenWindowFilling::first_grid_point_after(Rational date) const
+{
+    PPK_ASSERT_ERROR(date >= 0, "Negative date %g", (double)date);
+
+    // Truncating the quotient is a floor here, since the date is non-negative.
+    Rational quotient = date / _window_step;
+    boost::multiprecision::mpz_int index = numerator(quotient) / denominator(quotient);
+    Rational grid_point = Rational(index) * _window_step;
+
+    if (grid_point <= date)
+        grid_point += _window_step;
+
+    return grid_point;
+}
+
+void GreenWindowFilling::consider_window(const Job * job, Rational begin, WindowCandidate & best) const
+{
+    Rational end = begin + job->walltime;
+    IntervalSet machines;
+
+    if (!find_exact_allocation(job, begin, end, machines))
+        return;
+
+    // On a tie the window already picked wins. Candidates are visited in
+    // increasing start date, so that is the earliest one.
+    double score = compute_window_score(job, begin, end);
+    if (best.found && score >= best.score - 1e-9)
+        return;
+
+    best.found = true;
+    best.begin = begin;
+    best.end = end;
+    best.score = score;
+    best.machines = machines;
 }
 
 bool GreenWindowFilling::find_exact_allocation(const Job * job, Rational begin, Rational end, IntervalSet & machines) const
