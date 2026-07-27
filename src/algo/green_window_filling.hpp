@@ -40,10 +40,17 @@ private:
                                          bool default_value);
 
     void update_schedule_present(Rational date);
-    void execute_ready_jobs(double date);
-    void reserve_unscheduled_jobs(Rational date);
+    void execute_reserved_job_if_ready(Rational date);
+    void schedule_priority_job(Rational date);
 
-    Schedule::JobAlloc reserve_job(const Job * job, Rational date);
+    bool has_pending_displacement() const;
+    const Job * priority_job_ready_to_start(Rational date) const;
+    Schedule::JobAlloc insert_at_scored_window(const Job * job, const WindowCandidate & candidate);
+    Schedule::JobAlloc insert_at_earliest_fit_after(const Job * job, Rational search_start);
+    void start_job(const Job * job, const IntervalSet & machines, Rational date);
+    void hold_displaced_reservation(const Job * job, const Schedule::JobAlloc & alloc);
+    void clear_reservation();
+
     WindowCandidate find_best_window(const Job * job, Rational date) const;
     bool find_exact_allocation(const Job * job, Rational begin, Rational end, IntervalSet & machines) const;
     IntervalSet available_machines_during_period(Rational begin, Rational end) const;
@@ -52,7 +59,7 @@ private:
     double normalize_intensity_sum(double intensity_sum, double min_intensity,
                                    double max_intensity, double duration) const;
 
-    void request_earliest_future_reservation_call(Rational date);
+    void request_reservation_call(Rational date);
     void forget_requested_call_date(double date);
     bool is_call_date_already_requested(double date) const;
     static bool same_date(double left, double right);
@@ -62,12 +69,14 @@ private:
     std::string _intensity_zone;
     CSV_Parser _csv_parser;
 
-    // Which environmental signal drives every scheduling decision: either
-    // CARBON_INTENSITY_PROPERTY or WATER_INTENSITY_PROPERTY (see the .cpp).
     std::string _signal_property;
 
     Rational _planning_horizon = 0;
     Rational _window_step = 0;
+
+    const Job * _reserved_job = nullptr;
+    Rational _reserved_start = 0;
+    IntervalSet _reserved_machines;
 
     bool _green_window_filling_debug = false;
     std::set<double> _requested_call_dates;
