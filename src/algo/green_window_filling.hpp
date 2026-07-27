@@ -35,6 +35,9 @@ private:
     static std::string get_signal_property_option(rapidjson::Document * variant_options);
     static double get_required_positive_double_option(rapidjson::Document * variant_options,
                                                       const char * option_name);
+    static double get_optional_positive_double_option(rapidjson::Document * variant_options,
+                                                      const char * option_name,
+                                                      double default_value);
     static bool get_optional_bool_option(rapidjson::Document * variant_options,
                                          const char * option_name,
                                          bool default_value);
@@ -53,13 +56,12 @@ private:
 
     WindowCandidate find_best_window(const Job * job, Rational date) const;
     Rational first_grid_point_after(Rational date) const;
-    void consider_window(const Job * job, Rational begin, WindowCandidate & best) const;
+    void consider_window(const Job * job, Rational t0, Rational begin, WindowCandidate & best) const;
     bool find_exact_allocation(const Job * job, Rational begin, Rational end, IntervalSet & machines) const;
     IntervalSet available_machines_during_period(Rational begin, Rational end) const;
 
-    double compute_window_score(const Job * job, Rational begin, Rational end) const;
-    double normalize_intensity_sum(double intensity_sum, double min_intensity,
-                                   double max_intensity, double duration) const;
+    double compute_window_score(const Job * job, Rational t0, Rational begin, Rational end) const;
+    double intensity_sum(Rational begin, Rational end) const;
 
     void request_reservation_call(Rational date);
     void forget_requested_call_date(double date);
@@ -75,6 +77,9 @@ private:
 
     Rational _planning_horizon = 0;
     Rational _window_step = 0;
+
+    double _computing_watts = 0.0;
+    double _idle_watts = 0.0;
 
     const Job * _reserved_job = nullptr;
     Rational _reserved_start = 0;

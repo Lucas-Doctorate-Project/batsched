@@ -14,6 +14,11 @@ namespace
 {
 const std::string CARBON_INTENSITY_PROPERTY = "carbon_intensity";
 const std::string WATER_INTENSITY_PROPERTY = "water_intensity";
+
+const double JOULES_PER_KWH = 3600000.0;
+
+const double DEFAULT_COMPUTING_WATTS = 320.0;
+const double DEFAULT_IDLE_WATTS = 10.0;
 }
 
 GreenWindowFilling::GreenWindowFilling(Workload * workload,
@@ -28,6 +33,9 @@ GreenWindowFilling::GreenWindowFilling(Workload * workload,
     _csv_parser(_intensity_trace, _intensity_zone),
     _signal_property(get_signal_property_option(variant_options)),
     _planning_horizon(get_required_positive_double_option(variant_options, "planning_horizon_seconds")),
+    _computing_watts(get_optional_positive_double_option(variant_options, "computing_watts",
+                                                         DEFAULT_COMPUTING_WATTS)),
+    _idle_watts(get_optional_positive_double_option(variant_options, "idle_watts", DEFAULT_IDLE_WATTS)),
     _green_window_filling_debug(get_optional_bool_option(variant_options, "green_window_filling_debug", false))
 {
     // Candidates land on absolute multiples of this step, so they only line up
@@ -55,12 +63,15 @@ GreenWindowFilling::GreenWindowFilling(Workload * workload,
     if (_green_window_filling_debug)
     {
         LOG_F(INFO, "GreenWindowFilling initialized with intensity_trace=%s, intensity_zone=%s, "
-                    "signal=%s, planning_horizon_seconds=%g, window_step_seconds=%g",
+                    "signal=%s, planning_horizon_seconds=%g, window_step_seconds=%g, "
+                    "computing_watts=%g, idle_watts=%g",
               _intensity_trace.c_str(),
               _intensity_zone.c_str(),
               _signal_property.c_str(),
               (double)_planning_horizon,
-              (double)_window_step);
+              (double)_window_step,
+              _computing_watts,
+              _idle_watts);
     }
 }
 
@@ -114,6 +125,16 @@ double GreenWindowFilling::get_required_positive_double_option(rapidjson::Docume
     PPK_ASSERT_ERROR(value > 0.0,
                      "Invalid options: '%s' should be strictly positive (got %g)", option_name, value);
     return value;
+}
+
+double GreenWindowFilling::get_optional_positive_double_option(rapidjson::Document * variant_options,
+                                                               const char * option_name,
+                                                               double default_value)
+{
+    if (!variant_options->HasMember(option_name))
+        return default_value;
+
+    return get_required_positive_double_option(variant_options, option_name);
 }
 
 bool GreenWindowFilling::get_optional_bool_option(rapidjson::Document * variant_options,
@@ -271,7 +292,7 @@ Schedule::JobAlloc GreenWindowFilling::insert_at_scored_window(const Job * job, 
 
     if (_green_window_filling_debug)
     {
-        LOG_F(INFO, "GreenWindowFilling picked window [%g,%g) for job '%s', score=%g, machines=%s",
+        LOG_F(INFO, "GreenWindowFilling picked window [%g,%g) for job '%s', impact=%g, machines=%s",
               (double)candidate.begin,
               (double)candidate.end,
               job->id.c_str(),
@@ -328,7 +349,7 @@ GreenWindowFilling::WindowCandidate GreenWindowFilling::find_best_window(const J
         return best;
 
     // t0 is always a candidate, even though it seldom sits on the trace grid.
-    consider_window(job, date, best);
+    consider_window(job, date, date, best);
 
     // Then the sample boundaries the job can still finish by. Intensity is flat
     // in between, so starting mid-block only slides the window off the clean
@@ -337,7 +358,7 @@ GreenWindowFilling::WindowCandidate GreenWindowFilling::find_best_window(const J
          begin + job->walltime <= horizon_end;
          begin += _window_step)
     {
-        consider_window(job, begin, best);
+        consider_window(job, date, begin, best);
     }
 
     return best;
@@ -358,7 +379,7 @@ Rational GreenWindowFilling::first_grid_point_after(Rational date) const
     return grid_point;
 }
 
-void GreenWindowFilling::consider_window(const Job * job, Rational begin, WindowCandidate & best) const
+void GreenWindowFilling::consider_window(const Job * job, Rational t0, Rational begin, WindowCandidate & best) const
 {
     Rational end = begin + job->walltime;
     IntervalSet machines;
@@ -368,7 +389,7 @@ void GreenWindowFilling::consider_window(const Job * job, Rational begin, Window
 
     // On a tie the window already picked wins. Candidates are visited in
     // increasing start date, so that is the earliest one.
-    double score = compute_window_score(job, begin, end);
+    double score = compute_window_score(job, t0, begin, end);
     if (best.found && score >= best.score - 1e-9)
         return;
 
@@ -414,39 +435,30 @@ IntervalSet GreenWindowFilling::available_machines_during_period(Rational begin,
     return available_machines;
 }
 
-double GreenWindowFilling::compute_window_score(const Job * job, Rational begin, Rational end) const
+// The environmental impact of holding the job's nodes from t0 to the end of its
+// run: they idle from t0 until begin, then compute until end. Returned in the
+// signal's own unit (gCO2eq for carbon, litres for water).
+double GreenWindowFilling::compute_window_score(const Job * job, Rational t0, Rational begin, Rational end) const
 {
-    double begin_date = (double)begin;
-    double end_date = (double)end;
-    double duration = end_date - begin_date;
-    double intensity_sum = _csv_parser.get_sum(_signal_property, begin_date, end_date);
+    double computing_impact = _computing_watts * intensity_sum(begin, end);
+    double idle_impact = (begin > t0) ? _idle_watts * intensity_sum(t0, begin) : 0.0;
 
-    double normalized_intensity_sum = normalize_intensity_sum(intensity_sum,
-                                                              _csv_parser.get_min(_signal_property),
-                                                              _csv_parser.get_max(_signal_property),
-                                                              duration);
-
-    return (double)job->nb_requested_resources * normalized_intensity_sum;
+    return (double)job->nb_requested_resources * (computing_impact + idle_impact) / JOULES_PER_KWH;
 }
 
-double GreenWindowFilling::normalize_intensity_sum(double intensity_sum,
-                                                   double min_intensity,
-                                                   double max_intensity,
-                                                   double duration) const
+double GreenWindowFilling::intensity_sum(Rational begin, Rational end) const
 {
-    if (std::isnan(intensity_sum) || std::isnan(min_intensity) || std::isnan(max_intensity))
-        return 0.0;
+    double sum = _csv_parser.get_sum(_signal_property, (double)begin, (double)end);
 
-    if (max_intensity <= min_intensity)
-        return 0.0;
+    PPK_ASSERT_ERROR(!std::isnan(sum),
+                     "Intensity trace '%s' has no '%s' data for zone '%s' over [%g,%g)",
+                     _intensity_trace.c_str(),
+                     _signal_property.c_str(),
+                     _intensity_zone.c_str(),
+                     (double)begin,
+                     (double)end);
 
-    double normalized_sum = (intensity_sum - (min_intensity * duration)) /
-                            (max_intensity - min_intensity);
-
-    if (normalized_sum < 0.0 && normalized_sum > -1e-9)
-        return 0.0;
-
-    return normalized_sum;
+    return sum;
 }
 
 void GreenWindowFilling::request_reservation_call(Rational date)
