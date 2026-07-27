@@ -208,7 +208,7 @@ void GreenWindowFilling::schedule_priority_job(Rational date)
     WindowCandidate candidate = find_best_window(job, date);
     Schedule::JobAlloc alloc = candidate.found
                                    ? insert_at_scored_window(job, candidate)
-                                   : insert_at_earliest_fit_after(job, date + _planning_horizon);
+                                   : insert_at_earliest_fit_after(job, date);
 
     PPK_ASSERT_ERROR(alloc.has_been_inserted);
     PPK_ASSERT_ERROR(alloc.begin >= date,
