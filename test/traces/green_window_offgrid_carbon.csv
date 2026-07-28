@@ -1,0 +1,7 @@
+timestamp,zone,property,value
+0,TESTZONE,carbon_intensity,100
+3600,TESTZONE,carbon_intensity,100
+7200,TESTZONE,carbon_intensity,1
+10800,TESTZONE,carbon_intensity,100
+14400,TESTZONE,carbon_intensity,100
+18000,TESTZONE,carbon_intensity,100

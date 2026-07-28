@@ -1,0 +1,33 @@
+{
+    "version": 0,
+    "nb_res": 2,
+    "jobs": [
+        {
+            "id": "job_a",
+            "subtime": 0,
+            "walltime": 3595,
+            "res": 2,
+            "profile": "clean1h"
+        },
+        {
+            "id": "job_b",
+            "subtime": 0,
+            "walltime": 3595,
+            "res": 2,
+            "profile": "clean1h"
+        },
+        {
+            "id": "job_c",
+            "subtime": 0,
+            "walltime": 3595,
+            "res": 2,
+            "profile": "clean1h"
+        }
+    ],
+    "profiles": {
+        "clean1h": {
+            "type": "delay",
+            "delay": 3595
+        }
+    }
+}
