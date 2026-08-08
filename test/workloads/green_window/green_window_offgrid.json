@@ -1,0 +1,19 @@
+{
+    "version": 0,
+    "nb_res": 2,
+    "jobs": [
+        {
+            "id": "job_offgrid",
+            "subtime": 100,
+            "walltime": 3595,
+            "res": 2,
+            "profile": "clean1h"
+        }
+    ],
+    "profiles": {
+        "clean1h": {
+            "type": "delay",
+            "delay": 3595
+        }
+    }
+}

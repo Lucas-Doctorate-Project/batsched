@@ -4,6 +4,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -40,6 +41,8 @@ void CSV_Parser::parse_csv()
         throw runtime_error("CSV_Parser: cannot open file: " + _filename);
 
     _series.clear();
+    _prefix_integrals.clear();
+    _sampling_periods.clear();
 
     string line;
     if (!getline(in, line))
@@ -83,6 +86,58 @@ void CSV_Parser::parse_csv()
 
         _series[prop_s][ts] = val;
     }
+
+    build_integrals();
+}
+
+void CSV_Parser::build_integrals()
+{
+    _prefix_integrals.clear();
+    _sampling_periods.clear();
+
+    for (const auto & series_kv : _series)
+    {
+        const string & property = series_kv.first;
+        const auto & samples = series_kv.second;
+
+        if (samples.empty())
+            continue;
+
+        auto previous = samples.begin();
+        double cumulative = 0.0;
+        _prefix_integrals[property][previous->first] = cumulative;
+
+        bool first_period_found = false;
+        bool regular_sampling = true;
+        double detected_period = 0.0;
+
+        auto current = previous;
+        ++current;
+        for (; current != samples.end(); ++current)
+        {
+            double delta = current->first - previous->first;
+            cumulative += previous->second * delta;
+            _prefix_integrals[property][current->first] = cumulative;
+
+            if (delta > 0.0)
+            {
+                if (!first_period_found)
+                {
+                    detected_period = delta;
+                    first_period_found = true;
+                }
+                else if (std::abs(delta - detected_period) > 1e-9)
+                {
+                    regular_sampling = false;
+                }
+            }
+
+            previous = current;
+        }
+
+        if (first_period_found && regular_sampling)
+            _sampling_periods[property] = detected_period;
+    }
 }
 
 double CSV_Parser::get_value(double timestamp, const std::string & property) const
@@ -103,6 +158,57 @@ double CSV_Parser::get_value(double timestamp, const std::string & property) con
     auto it = samples.upper_bound(timestamp);
     --it;
     return it->second;
+}
+
+double CSV_Parser::integral_until(const std::string & property, double timestamp) const
+{
+    auto series_it = _series.find(property);
+    if (series_it == _series.end() || series_it->second.empty())
+        return std::numeric_limits<double>::quiet_NaN();
+
+    const auto & samples = series_it->second;
+    const auto first_it = samples.begin();
+    const auto last_it = std::prev(samples.end());
+
+    if (timestamp <= first_it->first)
+        return first_it->second * (timestamp - first_it->first);
+
+    if (timestamp >= last_it->first)
+    {
+        double integral = _prefix_integrals.at(property).at(last_it->first);
+        integral += last_it->second * (timestamp - last_it->first);
+        return integral;
+    }
+
+    auto it = samples.upper_bound(timestamp);
+    --it;
+
+    double integral = _prefix_integrals.at(property).at(it->first);
+    integral += it->second * (timestamp - it->first);
+    return integral;
+}
+
+double CSV_Parser::get_sum(const std::string & property, double start, double end) const
+{
+    if (start > end)
+        std::swap(start, end);
+
+    double start_integral = integral_until(property, start);
+    double end_integral = integral_until(property, end);
+
+    if (std::isnan(start_integral) || std::isnan(end_integral))
+        return std::numeric_limits<double>::quiet_NaN();
+
+    return end_integral - start_integral;
+}
+
+double CSV_Parser::get_sampling_period(const std::string & property) const
+{
+    auto period_it = _sampling_periods.find(property);
+    if (period_it == _sampling_periods.end())
+        return std::numeric_limits<double>::quiet_NaN();
+
+    return period_it->second;
 }
 
 double CSV_Parser::get_max(const std::string & property) const

@@ -24,6 +24,7 @@
 #include "algo/easy_bf.hpp"
 #include "algo/easy_bf_fast.hpp"
 #include "algo/greenfilling.hpp"
+#include "algo/green_window_filling.hpp"
 #include "algo/easy_bf_plot_liquid_load_horizon.hpp"
 #include "algo/energy_bf.hpp"
 #include "algo/energy_bf_dicho.hpp"
@@ -82,7 +83,7 @@ int main(int argc, char ** argv)
                                       "energy_bf_monitoring",
                                       "energy_bf_monitoring_inertial", "energy_bf_subpart_sleeper",
                                       "energy_watcher", "fcfs", "fcfs_fast",
-                                      "filler", "greenfilling", "killer", "killer2", "random", "rejecter",
+                                      "filler", "greenfilling", "green_window_filling", "killer", "killer2", "random", "rejecter",
                                       "sequencer", "sleeper", "submitter", "waiting_time_estimator"};
     const set<string> policies_set = {"basic", "contiguous"};
     const set<string> queue_orders_set = {"fcfs", "lcfs", "desc_bounded_slowdown", "desc_slowdown",
@@ -281,6 +282,8 @@ int main(int argc, char ** argv)
             algo = new EasyBackfillingPlotLiquidLoadHorizon(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
         else if (scheduling_variant == "greenfilling")
             algo = new Greenfilling(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
+        else if (scheduling_variant == "green_window_filling")
+            algo = new GreenWindowFilling(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
         else if (scheduling_variant == "energy_bf")
             algo = new EnergyBackfilling(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
         else if (scheduling_variant == "energy_bf_dicho")

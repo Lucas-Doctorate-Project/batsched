@@ -1,0 +1,19 @@
+
+<?xml version='1.0'?>
+<!DOCTYPE platform SYSTEM "http://simgrid.gforge.inria.fr/simgrid/simgrid.dtd">
+<platform version="4">
+<AS id="AS0" routing="Vivaldi">
+    <host id="master_host" coordinates="0 0 0" speed="100Mf">
+        <prop id="wattage_per_state" value="95.0:120.0:190.0" />
+        <prop id="wattage_off" value="10" />
+    </host>
+    <host id="host0" coordinates="0 0 0" speed="100Mf">
+        <prop id="wattage_per_state" value="95.0:120.0:190.0" />
+        <prop id="wattage_off" value="10" />
+    </host>
+    <host id="host1" coordinates="0 0 0" speed="100Mf">
+        <prop id="wattage_per_state" value="95.0:120.0:190.0" />
+        <prop id="wattage_off" value="10" />
+    </host>
+</AS>
+</platform>
