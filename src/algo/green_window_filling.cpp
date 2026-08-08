@@ -228,10 +228,14 @@ void GreenWindowFilling::schedule_priority_job(Rational date)
     if (job == nullptr)
         return;
 
+    // t0 is always among the candidates, and it is already known to fit (that
+    // is what priority_job_ready_to_start just checked), so a window is always
+    // found.
     WindowCandidate candidate = find_best_window(job, date);
-    Schedule::JobAlloc alloc = candidate.found
-                                   ? insert_at_scored_window(job, candidate)
-                                   : insert_at_earliest_fit_after(job, date);
+    PPK_ASSERT_ERROR(candidate.found, "No feasible window found for job '%s' despite fitting at t0=%g",
+                     job->id.c_str(), (double)date);
+
+    Schedule::JobAlloc alloc = insert_at_scored_window(job, candidate);
 
     PPK_ASSERT_ERROR(alloc.has_been_inserted);
     PPK_ASSERT_ERROR(alloc.begin >= date,
@@ -303,23 +307,6 @@ Schedule::JobAlloc GreenWindowFilling::insert_at_scored_window(const Job * job, 
     return alloc;
 }
 
-Schedule::JobAlloc GreenWindowFilling::insert_at_earliest_fit_after(const Job * job, Rational search_start)
-{
-    Schedule::JobAlloc alloc = _schedule.add_job_first_fit_after_time(job, search_start, _selector);
-
-    if (_green_window_filling_debug)
-    {
-        LOG_F(INFO, "GreenWindowFilling found no feasible scored window for job '%s'; "
-                    "reserved first-fit allocation [%g,%g), machines=%s",
-              job->id.c_str(),
-              (double)alloc.begin,
-              (double)alloc.end,
-              alloc.used_machines.to_string_hyphen(" ", "-").c_str());
-    }
-
-    return alloc;
-}
-
 void GreenWindowFilling::start_job(const Job * job, const IntervalSet & machines, Rational date)
 {
     _decision->add_execute_job(job->id, machines, (double)date);
@@ -345,17 +332,14 @@ GreenWindowFilling::WindowCandidate GreenWindowFilling::find_best_window(const J
     WindowCandidate best;
     Rational horizon_end = date + _planning_horizon;
 
-    if (date + job->walltime > horizon_end)
-        return best;
-
     // t0 is always a candidate, even though it seldom sits on the trace grid.
     consider_window(job, date, date, best);
 
-    // Then the sample boundaries the job can still finish by. Intensity is flat
-    // in between, so starting mid-block only slides the window off the clean
-    // block it is trying to cover.
+    // Then every later grid point within the maximum displacement. dm bounds
+    // where the job may start, not where it must finish, so its window can
+    // run past horizon_end.
     for (Rational begin = first_grid_point_after(date);
-         begin + job->walltime <= horizon_end;
+         begin <= horizon_end;
          begin += _window_step)
     {
         consider_window(job, date, begin, best);

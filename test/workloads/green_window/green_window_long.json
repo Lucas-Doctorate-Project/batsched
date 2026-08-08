@@ -1,0 +1,19 @@
+{
+    "version": 0,
+    "nb_res": 2,
+    "jobs": [
+        {
+            "id": "job_long",
+            "subtime": 0,
+            "walltime": 10795,
+            "res": 2,
+            "profile": "long3h"
+        }
+    ],
+    "profiles": {
+        "long3h": {
+            "type": "delay",
+            "delay": 10795
+        }
+    }
+}

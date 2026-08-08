@@ -101,20 +101,38 @@ def test_displaces_to_cleanest_reachable_window():
     assert starting_times['job_c'] == 14390.0
 
 
-def test_does_not_displace_job_longer_than_max_displacement():
-    # A job longer than the maximum displacement fits no candidate window, so it
-    # must start at t0 rather than be pushed to the end of the horizon.
-    #
-    # The effective walltime is 3600s against a 1800s maximum displacement, so
-    # every job is ineligible and the schedule collapses to plain FCFS, even
-    # though the trace offers a far cleaner block at t=7200.
+def test_starts_immediately_when_no_grid_point_is_reachable():
+    # dm bounds where the job may start. With dm=1800s and a 3600s grid, the
+    # next grid point after t0=0 is out of reach (3600 > 0+1800), so t0 is the
+    # only candidate and the job starts right away -- regardless of its own
+    # length, which no longer plays any part in this decision.
     starting_times = run_scenario(
-        'green_window_filling-green2hosts-green_window_demo-short_horizon',
-        planning_horizon_seconds=1800)
+        'green_window_filling-green2hosts-green_window_single-short_horizon',
+        planning_horizon_seconds=1800,
+        workload_name='green_window_single.json')
 
-    assert starting_times['job_a'] == 0.0
-    assert starting_times['job_b'] == 3595.0
-    assert starting_times['job_c'] == 7190.0
+    assert starting_times['job_single'] == 0.0
+
+
+def test_window_may_run_past_the_horizon():
+    # dm bounds where the job may start, not where it must finish, so a
+    # displaced job's execution can extend arbitrarily far past t0+dm.
+    #
+    # The job is long (effective walltime 10800s, three trace blocks) and dm is
+    # only 3600s: horizon_end=3600, and the only reachable candidate besides t0
+    # is the grid point at 3600 itself. Displacing there means the whole
+    # 10800s run [3600,14400) falls outside [0,3600], four times past the
+    # horizon, yet it is still preferred over t0 because it trades the dirty
+    # opening block (100) for three cleaner ones (10, 40, 70):
+    #
+    # t0=0:      exec 100+10+40 over 3600s each, no idle      -> impact 96.0
+    # begin=3600: exec 10+40+70 over 3600s each, idle 100*3600 -> impact 78.8
+    starting_times = run_scenario(
+        'green_window_filling-green2hosts-green_window_long',
+        planning_horizon_seconds=3600,
+        workload_name='green_window_long.json')
+
+    assert starting_times['job_long'] == 3600.0
 
 
 def test_candidates_align_with_trace_grid():

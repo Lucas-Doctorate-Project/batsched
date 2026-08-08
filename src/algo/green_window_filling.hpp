@@ -49,7 +49,6 @@ private:
     bool has_pending_displacement() const;
     const Job * priority_job_ready_to_start(Rational date) const;
     Schedule::JobAlloc insert_at_scored_window(const Job * job, const WindowCandidate & candidate);
-    Schedule::JobAlloc insert_at_earliest_fit_after(const Job * job, Rational search_start);
     void start_job(const Job * job, const IntervalSet & machines, Rational date);
     void hold_displaced_reservation(const Job * job, const Schedule::JobAlloc & alloc);
     void clear_reservation();
