@@ -1,4 +1,4 @@
-#include "green_window_filling.hpp"
+#include "green_window_scheduling.hpp"
 
 #include <cmath>
 #include <limits>
@@ -21,7 +21,7 @@ const double DEFAULT_COMPUTING_WATTS = 320.0;
 const double DEFAULT_IDLE_WATTS = 10.0;
 }
 
-GreenWindowFilling::GreenWindowFilling(Workload * workload,
+GreenWindowScheduling::GreenWindowScheduling(Workload * workload,
                                        SchedulingDecision * decision,
                                        Queue * queue,
                                        ResourceSelector * selector,
@@ -36,7 +36,7 @@ GreenWindowFilling::GreenWindowFilling(Workload * workload,
     _computing_watts(get_optional_positive_double_option(variant_options, "computing_watts",
                                                          DEFAULT_COMPUTING_WATTS)),
     _idle_watts(get_optional_positive_double_option(variant_options, "idle_watts", DEFAULT_IDLE_WATTS)),
-    _green_window_filling_debug(get_optional_bool_option(variant_options, "green_window_filling_debug", false))
+    _green_window_scheduling_debug(get_optional_bool_option(variant_options, "green_window_scheduling_debug", false))
 {
     // Candidates land on absolute multiples of this step, so they only line up
     // with the trace's intensity changes while it matches the sampling period.
@@ -60,9 +60,9 @@ GreenWindowFilling::GreenWindowFilling(Workload * workload,
         _window_step = sampling_period;
     }
 
-    if (_green_window_filling_debug)
+    if (_green_window_scheduling_debug)
     {
-        LOG_F(INFO, "GreenWindowFilling initialized with intensity_trace=%s, intensity_zone=%s, "
+        LOG_F(INFO, "GreenWindowScheduling initialized with intensity_trace=%s, intensity_zone=%s, "
                     "signal=%s, planning_horizon_seconds=%g, window_step_seconds=%g, "
                     "computing_watts=%g, idle_watts=%g",
               _intensity_trace.c_str(),
@@ -75,11 +75,11 @@ GreenWindowFilling::GreenWindowFilling(Workload * workload,
     }
 }
 
-GreenWindowFilling::~GreenWindowFilling()
+GreenWindowScheduling::~GreenWindowScheduling()
 {
 }
 
-std::string GreenWindowFilling::get_required_string_option(rapidjson::Document * variant_options,
+std::string GreenWindowScheduling::get_required_string_option(rapidjson::Document * variant_options,
                                                            const char * option_name)
 {
     PPK_ASSERT_ERROR(variant_options->HasMember(option_name),
@@ -90,7 +90,7 @@ std::string GreenWindowFilling::get_required_string_option(rapidjson::Document *
     return (*variant_options)[option_name].GetString();
 }
 
-std::string GreenWindowFilling::get_intensity_trace_option(rapidjson::Document * variant_options)
+std::string GreenWindowScheduling::get_intensity_trace_option(rapidjson::Document * variant_options)
 {
     if (variant_options->HasMember("intensity_trace"))
         return get_required_string_option(variant_options, "intensity_trace");
@@ -98,7 +98,7 @@ std::string GreenWindowFilling::get_intensity_trace_option(rapidjson::Document *
     return get_required_string_option(variant_options, "typical_intensities_file");
 }
 
-std::string GreenWindowFilling::get_signal_property_option(rapidjson::Document * variant_options)
+std::string GreenWindowScheduling::get_signal_property_option(rapidjson::Document * variant_options)
 {
     std::string signal = get_required_string_option(variant_options, "signal");
 
@@ -113,7 +113,7 @@ std::string GreenWindowFilling::get_signal_property_option(rapidjson::Document *
     return "";
 }
 
-double GreenWindowFilling::get_required_positive_double_option(rapidjson::Document * variant_options,
+double GreenWindowScheduling::get_required_positive_double_option(rapidjson::Document * variant_options,
                                                                const char * option_name)
 {
     PPK_ASSERT_ERROR(variant_options->HasMember(option_name),
@@ -127,7 +127,7 @@ double GreenWindowFilling::get_required_positive_double_option(rapidjson::Docume
     return value;
 }
 
-double GreenWindowFilling::get_optional_positive_double_option(rapidjson::Document * variant_options,
+double GreenWindowScheduling::get_optional_positive_double_option(rapidjson::Document * variant_options,
                                                                const char * option_name,
                                                                double default_value)
 {
@@ -137,7 +137,7 @@ double GreenWindowFilling::get_optional_positive_double_option(rapidjson::Docume
     return get_required_positive_double_option(variant_options, option_name);
 }
 
-bool GreenWindowFilling::get_optional_bool_option(rapidjson::Document * variant_options,
+bool GreenWindowScheduling::get_optional_bool_option(rapidjson::Document * variant_options,
                                                   const char * option_name,
                                                   bool default_value)
 {
@@ -149,13 +149,13 @@ bool GreenWindowFilling::get_optional_bool_option(rapidjson::Document * variant_
     return (*variant_options)[option_name].GetBool();
 }
 
-void GreenWindowFilling::on_requested_call(double date)
+void GreenWindowScheduling::on_requested_call(double date)
 {
     ISchedulingAlgorithm::on_requested_call(date);
     forget_requested_call_date(date);
 }
 
-void GreenWindowFilling::make_decisions(double date,
+void GreenWindowScheduling::make_decisions(double date,
                                         SortableJobOrder::UpdateInformation * update_info,
                                         SortableJobOrder::CompareInformation * compare_info)
 {
@@ -192,7 +192,7 @@ void GreenWindowFilling::make_decisions(double date,
     request_reservation_call(current_date);
 }
 
-void GreenWindowFilling::update_schedule_present(Rational date)
+void GreenWindowScheduling::update_schedule_present(Rational date)
 {
     PPK_ASSERT_ERROR(_schedule.nb_slices() > 0);
 
@@ -202,14 +202,14 @@ void GreenWindowFilling::update_schedule_present(Rational date)
         _schedule.update_first_slice_removing_remaining_jobs(date);
 }
 
-void GreenWindowFilling::execute_reserved_job_if_ready(Rational date)
+void GreenWindowScheduling::execute_reserved_job_if_ready(Rational date)
 {
     if (!has_pending_displacement() || date < _reserved_start)
         return;
 
-    if (_green_window_filling_debug)
+    if (_green_window_scheduling_debug)
     {
-        LOG_F(INFO, "GreenWindowFilling executing displaced job '%s' at date=%g on machines=%s",
+        LOG_F(INFO, "GreenWindowScheduling executing displaced job '%s' at date=%g on machines=%s",
               _reserved_job->id.c_str(),
               (double)date,
               _reserved_machines.to_string_hyphen(" ", "-").c_str());
@@ -219,7 +219,7 @@ void GreenWindowFilling::execute_reserved_job_if_ready(Rational date)
     clear_reservation();
 }
 
-void GreenWindowFilling::schedule_priority_job(Rational date)
+void GreenWindowScheduling::schedule_priority_job(Rational date)
 {
     if (has_pending_displacement())
         return;
@@ -244,9 +244,9 @@ void GreenWindowFilling::schedule_priority_job(Rational date)
 
     if (alloc.begin == date)
     {
-        if (_green_window_filling_debug)
+        if (_green_window_scheduling_debug)
         {
-            LOG_F(INFO, "GreenWindowFilling immediately executing job '%s' at date=%g on machines=%s",
+            LOG_F(INFO, "GreenWindowScheduling immediately executing job '%s' at date=%g on machines=%s",
                   job->id.c_str(), (double)date, alloc.used_machines.to_string_hyphen(" ", "-").c_str());
         }
 
@@ -259,7 +259,7 @@ void GreenWindowFilling::schedule_priority_job(Rational date)
 // is in flight at a time. While a reservation is pending the platform is held:
 // starting anything else would fill the very idle gap that the displacement
 // created, cancelling out the reason to displace.
-bool GreenWindowFilling::has_pending_displacement() const
+bool GreenWindowScheduling::has_pending_displacement() const
 {
     return _reserved_job != nullptr;
 }
@@ -267,7 +267,7 @@ bool GreenWindowFilling::has_pending_displacement() const
 // The queue head, but only once it could actually start: t0 is the date at
 // which it fits. Until then there is nothing to displace, so the caller waits
 // for a running job to end.
-const Job * GreenWindowFilling::priority_job_ready_to_start(Rational date) const
+const Job * GreenWindowScheduling::priority_job_ready_to_start(Rational date) const
 {
     const Job * job = _queue->first_job_or_nullptr();
     if (job == nullptr)
@@ -280,7 +280,7 @@ const Job * GreenWindowFilling::priority_job_ready_to_start(Rational date) const
     return job;
 }
 
-Schedule::JobAlloc GreenWindowFilling::insert_at_scored_window(const Job * job, const WindowCandidate & candidate)
+Schedule::JobAlloc GreenWindowScheduling::insert_at_scored_window(const Job * job, const WindowCandidate & candidate)
 {
     LimitedRangeResourceSelector exact_selector(candidate.machines);
     Schedule::JobAlloc alloc = _schedule.add_job_first_fit_after_time(job, candidate.begin, &exact_selector);
@@ -294,9 +294,9 @@ Schedule::JobAlloc GreenWindowFilling::insert_at_scored_window(const Job * job, 
                      candidate.machines.to_string_brackets().c_str(),
                      alloc.used_machines.to_string_brackets().c_str());
 
-    if (_green_window_filling_debug)
+    if (_green_window_scheduling_debug)
     {
-        LOG_F(INFO, "GreenWindowFilling picked window [%g,%g) for job '%s', impact=%g, machines=%s",
+        LOG_F(INFO, "GreenWindowScheduling picked window [%g,%g) for job '%s', impact=%g, machines=%s",
               (double)candidate.begin,
               (double)candidate.end,
               job->id.c_str(),
@@ -307,27 +307,27 @@ Schedule::JobAlloc GreenWindowFilling::insert_at_scored_window(const Job * job, 
     return alloc;
 }
 
-void GreenWindowFilling::start_job(const Job * job, const IntervalSet & machines, Rational date)
+void GreenWindowScheduling::start_job(const Job * job, const IntervalSet & machines, Rational date)
 {
     _decision->add_execute_job(job->id, machines, (double)date);
     _queue->remove_job(job);
 }
 
-void GreenWindowFilling::hold_displaced_reservation(const Job * job, const Schedule::JobAlloc & alloc)
+void GreenWindowScheduling::hold_displaced_reservation(const Job * job, const Schedule::JobAlloc & alloc)
 {
     _reserved_job = job;
     _reserved_start = alloc.begin;
     _reserved_machines = alloc.used_machines;
 }
 
-void GreenWindowFilling::clear_reservation()
+void GreenWindowScheduling::clear_reservation()
 {
     _reserved_job = nullptr;
     _reserved_start = 0;
     _reserved_machines = IntervalSet::empty_interval_set();
 }
 
-GreenWindowFilling::WindowCandidate GreenWindowFilling::find_best_window(const Job * job, Rational date) const
+GreenWindowScheduling::WindowCandidate GreenWindowScheduling::find_best_window(const Job * job, Rational date) const
 {
     WindowCandidate best;
     Rational horizon_end = date + _planning_horizon;
@@ -348,7 +348,7 @@ GreenWindowFilling::WindowCandidate GreenWindowFilling::find_best_window(const J
     return best;
 }
 
-Rational GreenWindowFilling::first_grid_point_after(Rational date) const
+Rational GreenWindowScheduling::first_grid_point_after(Rational date) const
 {
     PPK_ASSERT_ERROR(date >= 0, "Negative date %g", (double)date);
 
@@ -363,7 +363,7 @@ Rational GreenWindowFilling::first_grid_point_after(Rational date) const
     return grid_point;
 }
 
-void GreenWindowFilling::consider_window(const Job * job, Rational t0, Rational begin, WindowCandidate & best) const
+void GreenWindowScheduling::consider_window(const Job * job, Rational t0, Rational begin, WindowCandidate & best) const
 {
     Rational end = begin + job->walltime;
     IntervalSet machines;
@@ -384,13 +384,13 @@ void GreenWindowFilling::consider_window(const Job * job, Rational t0, Rational 
     best.machines = machines;
 }
 
-bool GreenWindowFilling::find_exact_allocation(const Job * job, Rational begin, Rational end, IntervalSet & machines) const
+bool GreenWindowScheduling::find_exact_allocation(const Job * job, Rational begin, Rational end, IntervalSet & machines) const
 {
     IntervalSet available_machines = available_machines_during_period(begin, end);
     return _selector->fit(job, available_machines, machines);
 }
 
-IntervalSet GreenWindowFilling::available_machines_during_period(Rational begin, Rational end) const
+IntervalSet GreenWindowScheduling::available_machines_during_period(Rational begin, Rational end) const
 {
     PPK_ASSERT_ERROR(begin < end);
 
@@ -422,7 +422,7 @@ IntervalSet GreenWindowFilling::available_machines_during_period(Rational begin,
 // The environmental impact of holding the job's nodes from t0 to the end of its
 // run: they idle from t0 until begin, then compute until end. Returned in the
 // signal's own unit (gCO2eq for carbon, litres for water).
-double GreenWindowFilling::compute_window_score(const Job * job, Rational t0, Rational begin, Rational end) const
+double GreenWindowScheduling::compute_window_score(const Job * job, Rational t0, Rational begin, Rational end) const
 {
     double computing_impact = _computing_watts * intensity_sum(begin, end);
     double idle_impact = (begin > t0) ? _idle_watts * intensity_sum(t0, begin) : 0.0;
@@ -430,7 +430,7 @@ double GreenWindowFilling::compute_window_score(const Job * job, Rational t0, Ra
     return (double)job->nb_requested_resources * (computing_impact + idle_impact) / JOULES_PER_KWH;
 }
 
-double GreenWindowFilling::intensity_sum(Rational begin, Rational end) const
+double GreenWindowScheduling::intensity_sum(Rational begin, Rational end) const
 {
     double sum = _csv_parser.get_sum(_signal_property, (double)begin, (double)end);
 
@@ -445,7 +445,7 @@ double GreenWindowFilling::intensity_sum(Rational begin, Rational end) const
     return sum;
 }
 
-void GreenWindowFilling::request_reservation_call(Rational date)
+void GreenWindowScheduling::request_reservation_call(Rational date)
 {
     if (_reserved_job == nullptr || _reserved_start <= date)
         return;
@@ -454,16 +454,16 @@ void GreenWindowFilling::request_reservation_call(Rational date)
     if (is_call_date_already_requested(future_date))
         return;
 
-    if (_green_window_filling_debug)
+    if (_green_window_scheduling_debug)
     {
-        LOG_F(INFO, "GreenWindowFilling requesting callback at date=%g", future_date);
+        LOG_F(INFO, "GreenWindowScheduling requesting callback at date=%g", future_date);
     }
 
     _decision->add_call_me_later(future_date, (double)date);
     _requested_call_dates.insert(future_date);
 }
 
-void GreenWindowFilling::forget_requested_call_date(double date)
+void GreenWindowScheduling::forget_requested_call_date(double date)
 {
     for (auto it = _requested_call_dates.begin(); it != _requested_call_dates.end(); )
     {
@@ -474,7 +474,7 @@ void GreenWindowFilling::forget_requested_call_date(double date)
     }
 }
 
-bool GreenWindowFilling::is_call_date_already_requested(double date) const
+bool GreenWindowScheduling::is_call_date_already_requested(double date) const
 {
     for (double requested_date : _requested_call_dates)
         if (same_date(requested_date, date))
@@ -483,7 +483,7 @@ bool GreenWindowFilling::is_call_date_already_requested(double date) const
     return false;
 }
 
-bool GreenWindowFilling::same_date(double left, double right)
+bool GreenWindowScheduling::same_date(double left, double right)
 {
     return std::abs(left - right) <= 1e-9;
 }

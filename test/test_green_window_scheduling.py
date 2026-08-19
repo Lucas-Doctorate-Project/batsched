@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic scenarios for the green_window_filling scheduling variant.
+"""Deterministic scenarios for the green_window_scheduling variant.
 
 The platform and workloads live in `green_window/` subdirectories so that
 conftest.py's `platforms/*.xml` and `workloads/*.json` globs keep parametrizing
@@ -35,7 +35,7 @@ def run_scenario(test_name, planning_horizon_seconds,
     workload = abspath(f'workloads/green_window/{workload_name}')
     intensity_trace = abspath(f'traces/{intensity_trace_name}')
     # This batsim fork requires an environmental-footprint trace regardless of
-    # whether the green_window_filling variant (a batsched-side, separate CSV)
+    # whether the green_window_scheduling variant (a batsched-side, separate CSV)
     # is used; its "zone" column must match a NetZone name from the platform
     # (here, AS0). Its content is otherwise irrelevant to these tests.
     env_footprint_trace = abspath('traces/batsim_env_footprint.csv')
@@ -48,7 +48,7 @@ def run_scenario(test_name, planning_horizon_seconds,
         "intensity_zone": "TESTZONE",
         "signal": signal,
         "planning_horizon_seconds": planning_horizon_seconds,
-        "green_window_filling_debug": True
+        "green_window_scheduling_debug": True
     }
     if extra_options:
         schedconf_content.update(extra_options)
@@ -56,7 +56,7 @@ def run_scenario(test_name, planning_horizon_seconds,
 
     instance = RobinInstance(output_dir=output_dir,
         batcmd=batcmd,
-        schedcmd=f"batsched -v 'green_window_filling' --variant_options_filepath '{schedconf_filename}'",
+        schedcmd=f"batsched -v 'green_window_scheduling' --variant_options_filepath '{schedconf_filename}'",
         simulation_timeout=30, ready_timeout=5,
         success_timeout=10, failure_timeout=0
     )
@@ -93,7 +93,7 @@ def test_displaces_to_cleanest_reachable_window():
     # The last two therefore also cover the "no gain, do not displace" path and
     # the tie-break toward the earliest start.
     starting_times = run_scenario(
-        'green_window_filling-green2hosts-green_window_demo',
+        'green_window_scheduling-green2hosts-green_window_demo',
         planning_horizon_seconds=18000)
 
     assert starting_times['job_a'] == 7200.0
@@ -107,7 +107,7 @@ def test_starts_immediately_when_no_grid_point_is_reachable():
     # only candidate and the job starts right away -- regardless of its own
     # length, which no longer plays any part in this decision.
     starting_times = run_scenario(
-        'green_window_filling-green2hosts-green_window_single-short_horizon',
+        'green_window_scheduling-green2hosts-green_window_single-short_horizon',
         planning_horizon_seconds=1800,
         workload_name='green_window_single.json')
 
@@ -128,7 +128,7 @@ def test_window_may_run_past_the_horizon():
     # t0=0:      exec 100+10+40 over 3600s each, no idle      -> impact 96.0
     # begin=3600: exec 10+40+70 over 3600s each, idle 100*3600 -> impact 78.8
     starting_times = run_scenario(
-        'green_window_filling-green2hosts-green_window_long',
+        'green_window_scheduling-green2hosts-green_window_long',
         planning_horizon_seconds=3600,
         workload_name='green_window_long.json')
 
@@ -148,7 +148,7 @@ def test_candidates_align_with_trace_grid():
     # the block: cost 3500*1 + 100*100, worse by more than an order of
     # magnitude. Asserting 7200 fails if the candidates are re-anchored on t0.
     starting_times = run_scenario(
-        'green_window_filling-green2hosts-green_window_offgrid',
+        'green_window_scheduling-green2hosts-green_window_offgrid',
         planning_horizon_seconds=18000,
         workload_name='green_window_offgrid.json',
         intensity_trace_name='green_window_offgrid_carbon.csv')
@@ -169,7 +169,7 @@ def test_idle_reservation_outweighs_marginal_gain():
     # Idle:                        0  vs           10W * 3600s * 100 =    3.60e6
     # Total:               115.20e6  vs                                116.50e6
     starting_times = run_scenario(
-        'green_window_filling-green2hosts-green_window_marginal',
+        'green_window_scheduling-green2hosts-green_window_marginal',
         planning_horizon_seconds=7200,
         workload_name='green_window_single.json',
         intensity_trace_name='green_window_marginal_carbon.csv')
@@ -185,7 +185,7 @@ def test_cheap_idle_makes_marginal_gain_worth_taking():
     # This pins down both that the power options are read and that the idle
     # weighting -- not the intensities alone -- is what settles the trade-off.
     starting_times = run_scenario(
-        'green_window_filling-green2hosts-green_window_marginal-cheap_idle',
+        'green_window_scheduling-green2hosts-green_window_marginal-cheap_idle',
         planning_horizon_seconds=7200,
         workload_name='green_window_single.json',
         intensity_trace_name='green_window_marginal_carbon.csv',
@@ -200,7 +200,7 @@ def test_cheap_idle_makes_marginal_gain_worth_taking():
 
 def test_carbon_signal_picks_the_carbon_window():
     starting_times = run_scenario(
-        'green_window_filling-green2hosts-two_signals-carbon',
+        'green_window_scheduling-green2hosts-two_signals-carbon',
         planning_horizon_seconds=14400,
         workload_name='green_window_single.json',
         intensity_trace_name='green_window_two_signals.csv',
@@ -211,7 +211,7 @@ def test_carbon_signal_picks_the_carbon_window():
 
 def test_water_signal_picks_the_water_window():
     starting_times = run_scenario(
-        'green_window_filling-green2hosts-two_signals-water',
+        'green_window_scheduling-green2hosts-two_signals-water',
         planning_horizon_seconds=14400,
         workload_name='green_window_single.json',
         intensity_trace_name='green_window_two_signals.csv',

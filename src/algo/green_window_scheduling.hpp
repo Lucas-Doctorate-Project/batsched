@@ -6,12 +6,12 @@
 #include <set>
 #include <string>
 
-class GreenWindowFilling : public EasyBackfilling
+class GreenWindowScheduling : public EasyBackfilling
 {
 public:
-    GreenWindowFilling(Workload * workload, SchedulingDecision * decision, Queue * queue, ResourceSelector * selector,
+    GreenWindowScheduling(Workload * workload, SchedulingDecision * decision, Queue * queue, ResourceSelector * selector,
                        double rjms_delay, rapidjson::Document * variant_options);
-    virtual ~GreenWindowFilling();
+    virtual ~GreenWindowScheduling();
 
     virtual void on_requested_call(double date);
 
@@ -84,6 +84,6 @@ private:
     Rational _reserved_start = 0;
     IntervalSet _reserved_machines;
 
-    bool _green_window_filling_debug = false;
+    bool _green_window_scheduling_debug = false;
     std::set<double> _requested_call_dates;
 };
