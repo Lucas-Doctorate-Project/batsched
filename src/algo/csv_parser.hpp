@@ -2,6 +2,8 @@
 
 #include <map>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 class CSV_Parser
 {
@@ -21,15 +23,23 @@ public:
     double get_min(const std::string & property, double start, double end) const;
 
 private:
+    struct IntegralSeries
+    {
+        std::vector<double> timestamps;
+        std::vector<double> values;
+        std::vector<double> prefix;
+        double index_period = 0.0;
+    };
+
     std::string _filename;
     std::string _zone;
     std::map<std::string, std::map<double, double>> _series;
-    std::map<std::string, std::map<double, double>> _prefix_integrals;
+    std::unordered_map<std::string, IntegralSeries> _integrals;
     std::map<std::string, double> _sampling_periods;
 
     static void trim_cr(std::string & s);
     static void strip_quotes(std::string & s);
     void parse_csv();
     void build_integrals();
-    double integral_until(const std::string & property, double timestamp) const;
+    static double integral_until(const IntegralSeries & series, double timestamp);
 };

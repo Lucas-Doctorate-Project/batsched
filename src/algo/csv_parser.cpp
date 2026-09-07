@@ -41,7 +41,7 @@ void CSV_Parser::parse_csv()
         throw runtime_error("CSV_Parser: cannot open file: " + _filename);
 
     _series.clear();
-    _prefix_integrals.clear();
+    _integrals.clear();
     _sampling_periods.clear();
 
     string line;
@@ -92,7 +92,7 @@ void CSV_Parser::parse_csv()
 
 void CSV_Parser::build_integrals()
 {
-    _prefix_integrals.clear();
+    _integrals.clear();
     _sampling_periods.clear();
 
     for (const auto & series_kv : _series)
@@ -105,7 +105,13 @@ void CSV_Parser::build_integrals()
 
         auto previous = samples.begin();
         double cumulative = 0.0;
-        _prefix_integrals[property][previous->first] = cumulative;
+        IntegralSeries & integral = _integrals[property];
+        integral.timestamps.reserve(samples.size());
+        integral.values.reserve(samples.size());
+        integral.prefix.reserve(samples.size());
+        integral.timestamps.push_back(previous->first);
+        integral.values.push_back(previous->second);
+        integral.prefix.push_back(cumulative);
 
         bool first_period_found = false;
         bool regular_sampling = true;
@@ -117,7 +123,9 @@ void CSV_Parser::build_integrals()
         {
             double delta = current->first - previous->first;
             cumulative += previous->second * delta;
-            _prefix_integrals[property][current->first] = cumulative;
+            integral.timestamps.push_back(current->first);
+            integral.values.push_back(current->second);
+            integral.prefix.push_back(cumulative);
 
             if (delta > 0.0)
             {
@@ -136,7 +144,22 @@ void CSV_Parser::build_integrals()
         }
 
         if (first_period_found && regular_sampling)
+        {
             _sampling_periods[property] = detected_period;
+
+            // Keep the actual timestamps and integrals. Only use arithmetic
+            // indexing when every boundary stays close to the inferred grid.
+            // This also handles tiny sampling drift without changing W(a,c).
+            bool indexable = std::isfinite(detected_period);
+            for (size_t i = 0; indexable && i < integral.timestamps.size(); ++i)
+            {
+                double grid_time = integral.timestamps.front() + i * detected_period;
+                indexable = std::isfinite(grid_time)
+                    && std::abs(integral.timestamps[i] - grid_time) <= detected_period / 4.0;
+            }
+            if (indexable)
+                integral.index_period = detected_period;
+        }
     }
 }
 
@@ -160,32 +183,38 @@ double CSV_Parser::get_value(double timestamp, const std::string & property) con
     return it->second;
 }
 
-double CSV_Parser::integral_until(const std::string & property, double timestamp) const
+double CSV_Parser::integral_until(const IntegralSeries & series, double timestamp)
 {
-    auto series_it = _series.find(property);
-    if (series_it == _series.end() || series_it->second.empty())
+    if (std::isnan(timestamp))
         return std::numeric_limits<double>::quiet_NaN();
 
-    const auto & samples = series_it->second;
-    const auto first_it = samples.begin();
-    const auto last_it = std::prev(samples.end());
+    const auto & times = series.timestamps;
 
-    if (timestamp <= first_it->first)
-        return first_it->second * (timestamp - first_it->first);
+    if (timestamp <= times.front())
+        return series.values.front() * (timestamp - times.front());
 
-    if (timestamp >= last_it->first)
+    if (timestamp >= times.back())
+        return series.prefix.back() + series.values.back() * (timestamp - times.back());
+
+    size_t index;
+    if (series.index_period > 0.0)
     {
-        double integral = _prefix_integrals.at(property).at(last_it->first);
-        integral += last_it->second * (timestamp - last_it->first);
-        return integral;
+        // The regular trace needs no timestamp search. Correct at most one
+        // neighboring block for rounding or small drift at a boundary.
+        index = std::min(static_cast<size_t>((timestamp - times.front()) / series.index_period),
+                         times.size() - 1);
+        if (index > 0 && timestamp < times[index])
+            --index;
+        else if (index + 1 < times.size() && timestamp >= times[index + 1])
+            ++index;
+    }
+    else
+    {
+        // Irregular traces retain their original step-function semantics.
+        index = std::upper_bound(times.begin(), times.end(), timestamp) - times.begin() - 1;
     }
 
-    auto it = samples.upper_bound(timestamp);
-    --it;
-
-    double integral = _prefix_integrals.at(property).at(it->first);
-    integral += it->second * (timestamp - it->first);
-    return integral;
+    return series.prefix[index] + series.values[index] * (timestamp - times[index]);
 }
 
 double CSV_Parser::get_sum(const std::string & property, double start, double end) const
@@ -193,8 +222,12 @@ double CSV_Parser::get_sum(const std::string & property, double start, double en
     if (start > end)
         std::swap(start, end);
 
-    double start_integral = integral_until(property, start);
-    double end_integral = integral_until(property, end);
+    auto series_it = _integrals.find(property);
+    if (series_it == _integrals.end())
+        return std::numeric_limits<double>::quiet_NaN();
+
+    double start_integral = integral_until(series_it->second, start);
+    double end_integral = integral_until(series_it->second, end);
 
     if (std::isnan(start_integral) || std::isnan(end_integral))
         return std::numeric_limits<double>::quiet_NaN();
