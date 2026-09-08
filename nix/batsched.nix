@@ -25,6 +25,10 @@
     "^src/algo/.*\.?pp"
     "^src/external"
     "^src/external/.*\.?pp"
+    "^test"
+    "^test/.*\.?pp"
+    "^test/green_window"
+    "^test/green_window/.*\.?pp"
     "^meson\.build"
   ];
 
