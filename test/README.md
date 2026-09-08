@@ -1,4 +1,22 @@
-### Running tests
+### Fast scheduler regressions
+
+From the repository root, after the usual `meson setup build`, run:
+
+```sh
+meson test -C build --print-errorlogs
+```
+
+With the repository's Nix development environment:
+
+```sh
+nix develop --offline -c meson test -C build --print-errorlogs
+```
+
+This builds and runs the C++ green-window scenarios and the CSV integral oracle. The scheduler scenarios inject `FakeGreenWindowIntensity` and use in-memory workload and protocol objects. They require no Batsim, Redis, network, or trace files. They cover dispatching multiple heads, EASY backfill protection, idle holds on displaced nodes, arrivals and early completions, callbacks, fixed displacement deadlines, and runnable-time origins. The CSV oracle uses a temporary file in the build directory.
+
+`planning_horizon_seconds` is the maximum displacement from the first time a queue head can run, not from submission. Reconsidering that job retains its original deadline. Only one head is displaced at a time. Its selected nodes stay idle until its reserved start, while other nodes can backfill. A head blocked by running jobs retains an EASY start reservation so backfills cannot delay it.
+
+### Batsim integration tests
 ``` bash
 nix-shell ../release.nix -A integration_tests --command 'pytest'
 # or just pytest, but you must prepare your env...
