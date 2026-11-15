@@ -11,6 +11,7 @@ const double JOULES_PER_KWH = 3600000.0;
 
 GreenWindowScheduling::WindowCandidate GreenWindowScheduling::find_best_window(const Job *job, Rational date)
 {
+    _intensity->issue_at(static_cast<double>(date));
     WindowCandidate best;
     const Rational t0 = _displacement_origins.emplace(job, date).first->second;
     const Rational horizon_end = t0 + _planning_horizon;

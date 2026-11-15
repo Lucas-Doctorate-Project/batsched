@@ -235,6 +235,39 @@ double CSV_Parser::get_sum(const std::string & property, double start, double en
     return end_integral - start_integral;
 }
 
+double CSV_Parser::previous_day_sum(const string &property, double issued, double begin, double end) const
+{
+    constexpr double day = 86400;
+    const double step = get_sampling_period(property);
+    if (!std::isfinite(step) || step <= 0 || std::fmod(day, step) != 0 || end < begin)
+        throw std::invalid_argument("previous-day forecast requires a regular grid dividing 24 hours and an ordered interval");
+    const double cutoff = std::floor(issued / step) * step;
+    const double start = cutoff - day;
+    if (!covers(property, std::min(start, begin), cutoff))
+        throw std::runtime_error("incomplete observation history in " + _filename);
+
+    // idle cost can include time already observed when a head is reconsidered
+    double sum = begin < cutoff ? get_sum(property, begin, std::min(end, cutoff)) : 0;
+    if (end <= cutoff)
+        return sum;
+    begin = std::max(begin, cutoff);
+    const double duration = end - begin;
+    const double cycles = std::floor(duration / day);
+    if (cycles > 0)
+        sum += cycles * get_sum(property, start, cutoff);
+    const double phase = start + std::fmod(begin - cutoff, day);
+    const double tail = phase + std::fmod(duration, day);
+    return sum + get_sum(property, phase, std::min(tail, cutoff))
+        + get_sum(property, start, start + std::max(0.0, tail - cutoff));
+}
+
+bool CSV_Parser::covers(const string &property, double start, double end) const
+{
+    const auto it = _integrals.find(property);
+    return it != _integrals.end() && start >= it->second.timestamps.front()
+        && end <= it->second.timestamps.back() + get_sampling_period(property);
+}
+
 double CSV_Parser::get_sampling_period(const std::string & property) const
 {
     auto period_it = _sampling_periods.find(property);

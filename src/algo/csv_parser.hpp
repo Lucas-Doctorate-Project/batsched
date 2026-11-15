@@ -14,6 +14,8 @@ public:
     double get_value(double timestamp, const std::string & property) const;
 
     double get_sum(const std::string & property, double start, double end) const;
+    double previous_day_sum(const std::string &property, double issued, double begin, double end) const;
+    bool covers(const std::string & property, double start, double end) const;
     double get_sampling_period(const std::string & property) const;
 
     double get_max(const std::string & property) const;

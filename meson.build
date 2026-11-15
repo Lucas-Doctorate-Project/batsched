@@ -26,6 +26,7 @@ batsched_deps = [
 
 # Source files
 src = [
+    'src/algo/cats.cpp',
     'src/algo/conservative_bf.cpp',
     'src/algo/conservative_bf.hpp',
     'src/algo/crasher.cpp',

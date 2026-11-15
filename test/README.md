@@ -17,6 +17,9 @@ This builds and runs the C++ green-window scenarios and the CSV integral oracle.
 `planning_horizon_seconds` is the maximum displacement from the first time a queue head can run, not from submission. Reconsidering that job retains its original deadline. Only one head is displaced at a time. Its selected nodes stay idle until its reserved start, while other nodes can backfill. A head blocked by running jobs retains an EASY start reservation so backfills cannot delay it.
 
 ### Batsim integration tests
+
+With the experimental Batsim and Batsched binaries on PATH, run the CATS integration tests on the simulation host with `python3 test/test_cats.py -v` from the repository root. They cover historical forecasting, a stand-alone callback, zero delay, and original-submission priority.
+
 ``` bash
 nix-shell ../release.nix -A integration_tests --command 'pytest'
 # or just pytest, but you must prepare your env...

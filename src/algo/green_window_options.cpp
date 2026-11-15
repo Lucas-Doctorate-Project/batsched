@@ -1,4 +1,5 @@
 #include "green_window_scheduling.hpp"
+#include "forecast_mode.hpp"
 
 #include <cmath>
 #include <loguru.hpp>
@@ -20,7 +21,7 @@ GreenWindowScheduling::GreenWindowScheduling(Workload *workload, SchedulingDecis
     ResourceSelector *selector, double rjms_delay, rapidjson::Document *variant_options)
     : GreenWindowScheduling(workload, decision, queue, selector, rjms_delay, variant_options,
           std::unique_ptr<GreenWindowIntensity>(new CsvGreenWindowIntensity(get_intensity_trace_option(variant_options),
-              get_required_string_option(variant_options, "intensity_zone"))))
+              get_required_string_option(variant_options, "intensity_zone"), uses_previous_day(*variant_options, false))))
 {
 }
 

@@ -98,6 +98,25 @@ static void test_series(const std::string & path, const std::vector<double> & ti
     }
 }
 
+static void test_previous_day(const std::string &path)
+{
+    {
+        std::ofstream out(path);
+        out << "timestamp,zone,property,value\n";
+        for (int i = 0; i <= 9; ++i)
+            out << (i - 4) * 21600 << ",TEST,carbon_intensity," << i + 1 << '\n';
+    }
+    CSV_Parser series(path, "TEST");
+    const std::string property = "carbon_intensity";
+    // at 27000, the four completed blocks contain 2, 3, 4 and 5
+    check(series.previous_day_sum(property, 27000, 21600, 43200) == 2 * 21600,
+          "the incomplete observation must not enter the forecast");
+    check(series.previous_day_sum(property, 27000, 0, 43200) == (5 + 2) * 21600,
+          "elapsed and forecast intervals must meet at the issue boundary");
+    check(series.previous_day_sum(property, 27000, 27000, 27000 + 2 * 86400 + 10800)
+          == 2 * 14 * 21600 + 2 * 10800, "long walltimes must repeat the same frozen day");
+}
+
 int main(int argc, char ** argv)
 {
     if (argc != 2)
@@ -108,6 +127,7 @@ int main(int argc, char ** argv)
     const double nan = std::numeric_limits<double>::quiet_NaN();
     try
     {
+        test_previous_day(argv[1]);
         test_series(argv[1], {0, 900, 1800, 2700, 3600}, {100, 10, 40, 0, 70}, 900);
         test_series(argv[1], {100, 1000, 1900, 2800, 3700}, {100, 10, 40, 0, 70}, 900);
         test_series(argv[1], {1700000000, 1700000900, 1700001800}, {10, 20, 30}, 900);
