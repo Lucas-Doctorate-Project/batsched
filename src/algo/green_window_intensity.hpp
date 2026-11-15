@@ -7,6 +7,7 @@ class GreenWindowIntensity
 public:
     virtual ~GreenWindowIntensity() = default;
 
+    virtual void issue_at(double) {}
     /** Integrate a signal for scoring. Example: integral("carbon_intensity", 0, 3600). */
     virtual double integral(const std::string &property, double begin, double end) const = 0;
     /** Supply the trace grid when no step is configured. Example: sampling_period("carbon_intensity"). */
@@ -17,15 +18,18 @@ class CsvGreenWindowIntensity : public GreenWindowIntensity
 {
 public:
     /** Isolate CSV input from scheduling. Example: CsvGreenWindowIntensity("trace.csv", "FR"). */
-    CsvGreenWindowIntensity(const std::string &filename, const std::string &zone)
-        : _csv_parser(filename, zone)
+    CsvGreenWindowIntensity(const std::string &filename, const std::string &zone, bool previous_day = false)
+        : _csv_parser(filename, zone), _previous_day(previous_day)
     {
     }
+
+    void issue_at(double date) override { _issued = date; }
 
     /** Preserve the parser's integral semantics. Example: integral("water_intensity", 0, 3600). */
     double integral(const std::string &property, double begin, double end) const override
     {
-        return _csv_parser.get_sum(property, begin, end);
+        return _previous_day ? _csv_parser.previous_day_sum(property, _issued, begin, end)
+                             : _csv_parser.get_sum(property, begin, end);
     }
 
     /** Preserve the parser's detected grid. Example: sampling_period("water_intensity"). */
@@ -36,4 +40,6 @@ public:
 
 private:
     CSV_Parser _csv_parser;
+    bool _previous_day;
+    double _issued = 0;
 };

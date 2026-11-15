@@ -25,6 +25,7 @@
 #include "algo/easy_bf_fast.hpp"
 #include "algo/greenfilling.hpp"
 #include "algo/green_window_scheduling.hpp"
+#include "algo/cats.hpp"
 #include "algo/easy_bf_plot_liquid_load_horizon.hpp"
 #include "algo/energy_bf.hpp"
 #include "algo/energy_bf_dicho.hpp"
@@ -83,7 +84,7 @@ int main(int argc, char ** argv)
                                       "energy_bf_monitoring",
                                       "energy_bf_monitoring_inertial", "energy_bf_subpart_sleeper",
                                       "energy_watcher", "fcfs", "fcfs_fast",
-                                      "filler", "greenfilling", "green_window_scheduling", "killer", "killer2", "random", "rejecter",
+                                      "filler", "cats", "greenfilling", "green_window_scheduling", "killer", "killer2", "random", "rejecter",
                                       "sequencer", "sleeper", "submitter", "waiting_time_estimator"};
     const set<string> policies_set = {"basic", "contiguous"};
     const set<string> queue_orders_set = {"fcfs", "lcfs", "desc_bounded_slowdown", "desc_slowdown",
@@ -274,6 +275,8 @@ int main(int argc, char ** argv)
             algo = new ConservativeBackfilling(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
         else if (scheduling_variant == "crasher")
             algo = new Crasher(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
+        else if (scheduling_variant == "cats")
+            algo = new Cats(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
         else if (scheduling_variant == "easy_bf")
             algo = new EasyBackfilling(&w, &decision, queue, selector, rjms_delay, &json_doc_variant_options);
         else if (scheduling_variant == "easy_bf_fast")

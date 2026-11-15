@@ -32,6 +32,11 @@ void EasyBackfilling::on_simulation_end(double date)
     (void) date;
 }
 
+void EasyBackfilling::enqueue_job(const Job *job, SortableJobOrder::UpdateInformation *update_info)
+{
+    _queue->append_job(job, update_info);
+}
+
 void EasyBackfilling::make_decisions(double date,
                                      SortableJobOrder::UpdateInformation *update_info,
                                      SortableJobOrder::CompareInformation *compare_info)
@@ -60,7 +65,7 @@ void EasyBackfilling::make_decisions(double date,
         }
         else
         {
-            _queue->append_job(new_job, update_info);
+            enqueue_job(new_job, update_info);
             recently_queued_jobs.push_back(new_job_id);
         }
     }
