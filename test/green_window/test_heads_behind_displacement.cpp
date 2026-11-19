@@ -17,6 +17,16 @@ static void backfill_mode_lets_a_later_job_overtake_the_blocked_head()
     scenario.expect_started({ "c_long" });
 }
 
+static void defaults_to_backfill_mode()
+{
+    GreenWindowScenario scenario(4, CLEAN_FROM_20, 20, WithoutNewOptions());
+    scenario.add_job("a_displaced", 2, 10);
+    scenario.add_job("b_wide", 3, 10);
+    scenario.add_job("c_long", 2, 50);
+    scenario.dispatch(0, { "a_displaced", "b_wide", "c_long" });
+    scenario.expect_started({ "c_long" });
+}
+
 static void easy_mode_reserves_the_blocked_head_after_the_displaced_job()
 {
     GreenWindowScenario scenario(4, CLEAN_FROM_20, 20, 0, "easy");
@@ -137,6 +147,7 @@ static void score_mode_reserves_between_two_displaced_starts()
 void test_heads_behind_displacement_regressions()
 {
     backfill_mode_lets_a_later_job_overtake_the_blocked_head();
+    defaults_to_backfill_mode();
     easy_mode_reserves_the_blocked_head_after_the_displaced_job();
     easy_mode_reserves_outside_the_held_nodes_before_the_displaced_start();
     easy_mode_starts_the_job_behind_at_once();

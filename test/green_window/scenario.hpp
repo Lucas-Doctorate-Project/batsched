@@ -82,6 +82,11 @@ struct GreenWindowSchedulingTestAccess
     }
 };
 
+/** Leave out min_relative_gain and heads_behind_displacement, as option files older than them do. */
+struct WithoutNewOptions
+{
+};
+
 class GreenWindowScenario
 {
 public:
@@ -90,11 +95,31 @@ public:
         : queue(&order)
         , trace(new FakeGreenWindowIntensity(std::move(blocks)))
     {
+        parse_options(horizon);
+        rapidjson::Document::AllocatorType &allocator = options.GetAllocator();
+        options.AddMember("min_relative_gain", min_relative_gain, allocator);
+        options.AddMember("heads_behind_displacement",
+            rapidjson::Value(heads_behind_displacement.c_str(), allocator), allocator);
+        start_scheduler(machines);
+    }
+
+    GreenWindowScenario(int machines, std::vector<double> blocks, double horizon, WithoutNewOptions)
+        : queue(&order)
+        , trace(new FakeGreenWindowIntensity(std::move(blocks)))
+    {
+        parse_options(horizon);
+        start_scheduler(machines);
+    }
+
+    void parse_options(double horizon)
+    {
         options.Parse(R"({"intensity_trace":"fake.csv","intensity_zone":"TESTZONE","signal":"carbon",
-            "planning_horizon_seconds":20,"min_relative_gain":0,"heads_behind_displacement":"backfill"})");
+            "planning_horizon_seconds":20})");
         options["planning_horizon_seconds"].SetDouble(horizon);
-        options["min_relative_gain"].SetDouble(min_relative_gain);
-        options["heads_behind_displacement"].SetString(heads_behind_displacement.c_str(), options.GetAllocator());
+    }
+
+    void start_scheduler(int machines)
+    {
         scheduler.reset(new GreenWindowScheduling(
             &workload, &decision, &queue, &selector, 0, &options, std::unique_ptr<GreenWindowIntensity>(trace)));
         scheduler->set_nb_machines(machines);

@@ -16,6 +16,15 @@ static void displaces_when_the_gain_reaches_the_minimum()
     scenario.expect_callback(10);
 }
 
+static void defaults_to_no_minimum_gain()
+{
+    GreenWindowScenario scenario(2, SLIGHTLY_CLEANER_LATER, 10, WithoutNewOptions());
+    scenario.add_job("head", 2, 10);
+    scenario.dispatch(0, { "head" });
+    scenario.expect_started({});
+    scenario.expect_callback(10);
+}
+
 static void starts_now_when_the_gain_falls_short_of_the_minimum()
 {
     GreenWindowScenario scenario(2, SLIGHTLY_CLEANER_LATER, 10, 0.10);
@@ -38,5 +47,6 @@ static void starts_now_when_the_gain_falls_short_of_the_minimum()
 void test_minimum_gain_regressions()
 {
     displaces_when_the_gain_reaches_the_minimum();
+    defaults_to_no_minimum_gain();
     starts_now_when_the_gain_falls_short_of_the_minimum();
 }
