@@ -176,7 +176,7 @@ void GreenWindowScheduling::log_window_choice(const Job *job, Rational date, Rat
 
     record.AddMember("event", "green_window_selected", allocator);
     record.AddMember("job", rapidjson::Value(job->id.c_str(), allocator), allocator);
-    
+
     record.AddMember("date", (double)date, allocator);
     record.AddMember("t0", (double)t0, allocator);
     record.AddMember("begin", (double)chosen.begin, allocator);
@@ -186,7 +186,7 @@ void GreenWindowScheduling::log_window_choice(const Job *job, Rational date, Rat
     // now_impact is the score of starting at date, absent when that start is infeasible.
     if (now.found)
         record.AddMember("now_impact", now.score, allocator);
-    
+
     // The lowest-score window, present only when the minimum gain kept the job at its immediate start.
     if (chosen.begin != lowest.begin)
     {
