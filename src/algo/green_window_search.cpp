@@ -12,21 +12,43 @@ const double JOULES_PER_KWH = 3600000.0;
 GreenWindowScheduling::WindowCandidate GreenWindowScheduling::find_best_window(const Job *job, Rational date)
 {
     _intensity->issue_at(static_cast<double>(date));
-    WindowCandidate best;
     const Rational t0 = _displacement_origins.emplace(job, date).first->second;
-    const Rational horizon_end = t0 + _planning_horizon;
     // The current runnable date remains a candidate off-grid and at an expired deadline.
     // b46671e renewed the horizon here, allowing successive searches to drift.
-    consider_window(job, t0, date, best);
-    // Then every later grid point within the maximum displacement. dm bounds
-    // where the job may start, not where it must finish, so its window can
-    // run past horizon_end.
+    WindowCandidate now;
+    consider_window(job, t0, date, now);
+
+    WindowCandidate lowest = find_lowest_score_window(job, t0, date, now);
+    WindowCandidate chosen = apply_minimum_gain(now, lowest);
+    log_window_choice(job, date, t0, now, lowest, chosen);
+    return chosen;
+}
+
+GreenWindowScheduling::WindowCandidate GreenWindowScheduling::find_lowest_score_window(
+    const Job *job, Rational t0, Rational date, const WindowCandidate &now) const
+{
+    WindowCandidate lowest = now;
+    const Rational horizon_end = t0 + _planning_horizon;
+    // Every later grid point within the maximum displacement. dm bounds where
+    // the job may start, not where it must finish, so its window can run past
+    // horizon_end.
     for (Rational begin = first_grid_point_after(date); begin <= horizon_end; begin += _window_step)
     {
-        consider_window(job, t0, begin, best);
+        consider_window(job, t0, begin, lowest);
     }
-    log_window_choice(job, best);
-    return best;
+    return lowest;
+}
+
+// Displace only when the window cuts the score of starting now by at least
+// _min_relative_gain. With the default of 0, any lower score displaces.
+GreenWindowScheduling::WindowCandidate GreenWindowScheduling::apply_minimum_gain(
+    const WindowCandidate &now, const WindowCandidate &lowest) const
+{
+    if (!now.found)
+        return lowest;
+
+    bool worth_displacing = lowest.score <= (1.0 - _min_relative_gain) * now.score;
+    return worth_displacing ? lowest : now;
 }
 
 Rational GreenWindowScheduling::first_grid_point_after(Rational date) const
@@ -69,9 +91,8 @@ bool GreenWindowScheduling::find_exact_allocation(
     const Job *job, Rational begin, Rational end, IntervalSet &machines) const
 {
     IntervalSet available_machines = available_machines_during_period(begin, end);
-    // Keep only the displaced allocation idle, including jobs that finish before its start.
-    if (has_pending_displacement() && begin < _reserved_start)
-        available_machines -= _reserved_machines;
+    // Keep the displaced allocations idle, including for jobs that finish before their start.
+    available_machines -= machines_held_at(begin);
     return _selector->fit(job, available_machines, machines);
 }
 

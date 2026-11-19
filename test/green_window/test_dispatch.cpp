@@ -72,6 +72,8 @@ int main()
         rejects_invalid_jobs_without_blocking_dispatch();
         test_displacement_regressions();
         test_window_search_regressions();
+        test_minimum_gain_regressions();
+        test_heads_behind_displacement_regressions();
         std::cout << "Green-window regressions passed\n";
         return 0;
     }

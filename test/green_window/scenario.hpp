@@ -3,6 +3,7 @@
 #include "algo/green_window_scheduling.hpp"
 
 #include <algorithm>
+#include <loguru.hpp>
 #include <stdexcept>
 #include <vector>
 
@@ -10,6 +11,12 @@ inline void require_green_window(bool condition, const std::string &expectation)
 {
     if (!condition)
         throw std::runtime_error(expectation);
+}
+
+/** Collect log lines into a std::vector<std::string>. Example: loguru::add_callback("id", capture_log, &lines, ...). */
+inline void capture_log(void *records, const loguru::Message &message)
+{
+    static_cast<std::vector<std::string> *>(records)->push_back(message.message);
 }
 
 class FakeGreenWindowIntensity : public GreenWindowIntensity
@@ -51,10 +58,16 @@ struct GreenWindowSchedulingTestAccess
         return scheduler.find_best_window(job, date).begin;
     }
 
+    static void enable_debug_log(GreenWindowScheduling &scheduler)
+    {
+        scheduler._green_window_scheduling_debug = true;
+    }
+
     static void reconsider_displacement(GreenWindowScheduling &scheduler)
     {
-        scheduler._schedule.remove_job(scheduler._reserved_job);
-        scheduler.clear_reservation();
+        require_green_window(scheduler._displacements.size() == 1, "Expected exactly one displacement to reconsider");
+        scheduler._schedule.remove_job(scheduler._displacements.front().job);
+        scheduler._displacements.clear();
     }
 
     static bool origin_retained(const GreenWindowScheduling &scheduler, const Job *job)
@@ -69,16 +82,44 @@ struct GreenWindowSchedulingTestAccess
     }
 };
 
+/** Leave out min_relative_gain and heads_behind_displacement, as option files older than them do. */
+struct WithoutNewOptions
+{
+};
+
 class GreenWindowScenario
 {
 public:
-    explicit GreenWindowScenario(int machines = 4, std::vector<double> blocks = { 100 }, double horizon = 20)
+    explicit GreenWindowScenario(int machines = 4, std::vector<double> blocks = { 100 }, double horizon = 20,
+        double min_relative_gain = 0, const std::string &heads_behind_displacement = "backfill")
         : queue(&order)
         , trace(new FakeGreenWindowIntensity(std::move(blocks)))
+    {
+        parse_options(horizon);
+        rapidjson::Document::AllocatorType &allocator = options.GetAllocator();
+        options.AddMember("min_relative_gain", min_relative_gain, allocator);
+        options.AddMember("heads_behind_displacement",
+            rapidjson::Value(heads_behind_displacement.c_str(), allocator), allocator);
+        start_scheduler(machines);
+    }
+
+    GreenWindowScenario(int machines, std::vector<double> blocks, double horizon, WithoutNewOptions)
+        : queue(&order)
+        , trace(new FakeGreenWindowIntensity(std::move(blocks)))
+    {
+        parse_options(horizon);
+        start_scheduler(machines);
+    }
+
+    void parse_options(double horizon)
     {
         options.Parse(R"({"intensity_trace":"fake.csv","intensity_zone":"TESTZONE","signal":"carbon",
             "planning_horizon_seconds":20})");
         options["planning_horizon_seconds"].SetDouble(horizon);
+    }
+
+    void start_scheduler(int machines)
+    {
         scheduler.reset(new GreenWindowScheduling(
             &workload, &decision, &queue, &selector, 0, &options, std::unique_ptr<GreenWindowIntensity>(trace)));
         scheduler->set_nb_machines(machines);
@@ -162,3 +203,5 @@ public:
 
 void test_displacement_regressions();
 void test_window_search_regressions();
+void test_minimum_gain_regressions();
+void test_heads_behind_displacement_regressions();

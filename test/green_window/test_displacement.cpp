@@ -12,7 +12,7 @@ static void backfills_only_outside_the_displaced_nodes()
     require_green_window(scenario.allocated_nodes("outside") == "2-3", "Expected backfill on nodes 2-3");
     scenario.dispatch(20, {}, {}, true);
     scenario.expect_started({ "displaced" });
-    require_green_window(scenario.allocated_nodes("displaced") == "0-1", "Expected reserved nodes 0-1");
+    require_green_window(scenario.allocated_nodes("displaced") == "0-1", "Expected the displaced nodes 0-1");
 }
 
 static void serves_arrivals_and_old_jobs_during_displacement()
@@ -34,7 +34,7 @@ static void serves_arrivals_and_old_jobs_during_displacement()
     scenario.expect_started({ "displaced" });
 }
 
-static void callbacks_release_reservations_once()
+static void callbacks_release_displacements_once()
 {
     GreenWindowScenario scenario(4, { 100, 100, 1 });
     const Job *displaced = scenario.add_job("displaced", 2, 10);
@@ -75,6 +75,6 @@ void test_displacement_regressions()
 {
     backfills_only_outside_the_displaced_nodes();
     serves_arrivals_and_old_jobs_during_displacement();
-    callbacks_release_reservations_once();
+    callbacks_release_displacements_once();
     preserves_deadline_across_redeferrals();
 }

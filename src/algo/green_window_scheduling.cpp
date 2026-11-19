@@ -16,12 +16,12 @@ void GreenWindowScheduling::make_decisions(
     clear_priority_reservation();
     release_completed_allocations();
     update_schedule_present(date);
-    execute_reserved_job_if_ready(date);
+    execute_displaced_jobs_due(date);
     enqueue_released_jobs(date, update_info);
     _queue->sort_queue(update_info, compare_info);
     schedule_runnable_heads(date);
     backfill_waiting_jobs(date);
-    request_reservation_call(date);
+    request_displaced_start_calls(date);
 }
 
 void GreenWindowScheduling::release_completed_allocations()
@@ -59,6 +59,91 @@ void GreenWindowScheduling::schedule_runnable_heads(Rational date)
         if (_priority_reservation != nullptr)
             return;
     }
+
+    if (has_pending_displacement() && _heads_behind_displacement != HeadsBehindDisplacement::Backfill)
+        schedule_heads_behind_displacement(date);
+}
+
+// EASY for the jobs queued behind the displaced ones: they are taken in queue
+// order while they fit, and the first one that does not fit keeps a
+// reservation, so the backfill that follows cannot delay it. In the easy mode
+// a job that fits starts at once. In the score mode it is scored like the queue
+// head, so it may be displaced as well.
+void GreenWindowScheduling::schedule_heads_behind_displacement(Rational date)
+{
+    std::list<SortableJob *>::const_iterator job_it = _queue->begin();
+
+    while (job_it != _queue->end())
+    {
+        // Advance first: starting the job removes it from the queue.
+        const Job *job = (*job_it++)->job;
+        if (is_displaced(job))
+            continue;
+
+        if (!fits_immediately(job, date))
+        {
+            reserve_earliest_start_around_holds(job, date);
+            return;
+        }
+
+        if (_heads_behind_displacement == HeadsBehindDisplacement::Score)
+            schedule_at_scored_window(job, date);
+        else
+            try_start_immediately(job, date);
+    }
+}
+
+// Held nodes stay idle until their displaced start (see find_exact_allocation).
+// A reservation on them before that start would not protect the job, because it
+// could not start there. Each displaced start releases its nodes, so the held
+// set only changes at those starts: the phases between them are tried in order,
+// each avoiding the nodes still held when it begins. After the last start no
+// node is held, so the last attempt always succeeds.
+void GreenWindowScheduling::reserve_earliest_start_around_holds(const Job *job, Rational date)
+{
+    std::vector<Rational> boundaries = hold_phase_boundaries(date);
+    for (std::size_t phase = 0; phase + 1 < boundaries.size(); ++phase)
+    {
+        if (try_reserve_before(job, boundaries[phase], boundaries[phase + 1]))
+            return;
+    }
+    _schedule.add_job_first_fit_after_time(job, boundaries.back(), _selector);
+    _priority_reservation = job;
+}
+
+// Reserve the job's earliest start from `after` that avoids the nodes held at
+// `after`, if that start comes before `before`.
+bool GreenWindowScheduling::try_reserve_before(const Job *job, Rational after, Rational before)
+{
+    IntervalSet outside_holds;
+    outside_holds.insert(IntervalSet::ClosedInterval(0, _nb_machines - 1));
+    outside_holds -= machines_held_at(after);
+    LimitedRangeResourceSelector outside_holds_selector(outside_holds);
+
+    const bool assert_insertion_successful = false;
+    Schedule::JobAlloc alloc
+        = _schedule.add_job_first_fit_after_time(job, after, &outside_holds_selector, assert_insertion_successful);
+    if (alloc.has_been_inserted && alloc.begin < before)
+    {
+        _priority_reservation = job;
+        return true;
+    }
+    _schedule.remove_job_if_exists(job);
+    return false;
+}
+
+// The date, then every distinct displaced start after it, in increasing order.
+std::vector<Rational> GreenWindowScheduling::hold_phase_boundaries(Rational date) const
+{
+    std::set<Rational> later_starts;
+    for (const Displacement &displacement : _displacements)
+    {
+        if (displacement.start > date)
+            later_starts.insert(displacement.start);
+    }
+    std::vector<Rational> boundaries = { date };
+    boundaries.insert(boundaries.end(), later_starts.begin(), later_starts.end());
+    return boundaries;
 }
 
 void GreenWindowScheduling::schedule_priority_job(Rational date)
@@ -72,13 +157,20 @@ void GreenWindowScheduling::schedule_priority_job(Rational date)
         return;
     }
     _schedule.remove_job(job);
+    schedule_at_scored_window(job, date);
+}
+
+// Start the job now or hold it for a later window, whichever the score picks.
+// The job must fit at date.
+void GreenWindowScheduling::schedule_at_scored_window(const Job *job, Rational date)
+{
     WindowCandidate candidate = find_best_window(job, date);
     PPK_ASSERT_ERROR(candidate.found, "Job '%s' fits at %g, expected a feasible window", job->id.c_str(), (double)date);
     Schedule::JobAlloc alloc = insert_at_scored_window(job, candidate);
     if (alloc.begin == date)
         start_job(job, alloc.used_machines, date);
     else
-        hold_displaced_reservation(job, alloc);
+        hold_displacement(job, alloc);
 }
 
 void GreenWindowScheduling::backfill_waiting_jobs(Rational date)
@@ -88,20 +180,29 @@ void GreenWindowScheduling::backfill_waiting_jobs(Rational date)
     while (job_it != _queue->end())
     {
         const Job *job = (*job_it++)->job;
-        if (job != _reserved_job && job != _priority_reservation)
-            try_backfill_job(job, date);
+        if (!is_displaced(job) && job != _priority_reservation)
+            try_start_immediately(job, date);
     }
 }
 
-void GreenWindowScheduling::try_backfill_job(const Job *job, Rational date)
+// Starts the job at date if it fits there for its whole walltime, outside the held nodes.
+bool GreenWindowScheduling::try_start_immediately(const Job *job, Rational date)
 {
     WindowCandidate candidate;
     candidate.begin = date;
     candidate.end = date + job->walltime;
     if (!find_exact_allocation(job, candidate.begin, candidate.end, candidate.machines))
-        return;
+        return false;
     Schedule::JobAlloc alloc = insert_at_scored_window(job, candidate);
     start_job(job, alloc.used_machines, date);
+    return true;
+}
+
+// Whether the job fits at date for its whole walltime, outside the held nodes.
+bool GreenWindowScheduling::fits_immediately(const Job *job, Rational date) const
+{
+    IntervalSet machines;
+    return find_exact_allocation(job, date, date + job->walltime, machines);
 }
 
 void GreenWindowScheduling::update_schedule_present(Rational date)
@@ -114,20 +215,45 @@ void GreenWindowScheduling::update_schedule_present(Rational date)
         _schedule.update_first_slice_removing_remaining_jobs(date);
 }
 
-void GreenWindowScheduling::execute_reserved_job_if_ready(Rational date)
+void GreenWindowScheduling::execute_displaced_jobs_due(Rational date)
 {
-    if (!has_pending_displacement() || date < _reserved_start)
-        return;
-
-    start_job(_reserved_job, _reserved_machines, date);
-    clear_reservation();
+    std::vector<Displacement> still_pending;
+    for (const Displacement &displacement : _displacements)
+    {
+        if (displacement.start <= date)
+            start_job(displacement.job, displacement.machines, date);
+        else
+            still_pending.push_back(displacement);
+    }
+    _displacements = still_pending;
 }
 
-// Only the head of the FCFS queue is displaced, with one displacement in flight.
-// Its nodes remain idle until the reserved start. Other nodes can still backfill.
+// Displaced nodes remain idle until their start. Other nodes can still backfill.
 bool GreenWindowScheduling::has_pending_displacement() const
 {
-    return _reserved_job != nullptr;
+    return !_displacements.empty();
+}
+
+bool GreenWindowScheduling::is_displaced(const Job *job) const
+{
+    for (const Displacement &displacement : _displacements)
+    {
+        if (displacement.job == job)
+            return true;
+    }
+    return false;
+}
+
+// Nodes of the displaced jobs that have not started at `date`.
+IntervalSet GreenWindowScheduling::machines_held_at(Rational date) const
+{
+    IntervalSet held;
+    for (const Displacement &displacement : _displacements)
+    {
+        if (date < displacement.start)
+            held += displacement.machines;
+    }
+    return held;
 }
 
 Schedule::JobAlloc GreenWindowScheduling::insert_at_scored_window(const Job *job, const WindowCandidate &candidate)
@@ -151,31 +277,30 @@ void GreenWindowScheduling::start_job(const Job *job, const IntervalSet &machine
     _displacement_origins.erase(job);
 }
 
-void GreenWindowScheduling::hold_displaced_reservation(const Job *job, const Schedule::JobAlloc &alloc)
+void GreenWindowScheduling::hold_displacement(const Job *job, const Schedule::JobAlloc &alloc)
 {
-    _reserved_job = job;
-    _reserved_start = alloc.begin;
-    _reserved_machines = alloc.used_machines;
+    Displacement displacement;
+    displacement.job = job;
+    displacement.start = alloc.begin;
+    displacement.machines = alloc.used_machines;
+    _displacements.push_back(displacement);
 }
 
-void GreenWindowScheduling::clear_reservation()
+// One callback per future displaced start, so each displaced job starts on time.
+void GreenWindowScheduling::request_displaced_start_calls(Rational date)
 {
-    _reserved_job = nullptr;
-    _reserved_start = 0;
-    _reserved_machines = IntervalSet::empty_interval_set();
-}
+    for (const Displacement &displacement : _displacements)
+    {
+        if (displacement.start <= date)
+            continue;
 
-void GreenWindowScheduling::request_reservation_call(Rational date)
-{
-    if (_reserved_job == nullptr || _reserved_start <= date)
-        return;
+        double future_date = (double)displacement.start;
+        if (is_call_date_already_requested(future_date))
+            continue;
 
-    double future_date = (double)_reserved_start;
-    if (is_call_date_already_requested(future_date))
-        return;
-
-    _decision->add_call_me_later(future_date, (double)date);
-    _requested_call_dates.insert(future_date);
+        _decision->add_call_me_later(future_date, (double)date);
+        _requested_call_dates.insert(future_date);
+    }
 }
 
 void GreenWindowScheduling::forget_requested_call_date(double date)
