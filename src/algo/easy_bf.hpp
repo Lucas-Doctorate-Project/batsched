@@ -28,6 +28,7 @@ public:
                                                 SortableJobOrder::CompareInformation * compare_info);
 
 protected:
+    virtual void enqueue_job(const Job *job, SortableJobOrder::UpdateInformation *update_info);
     Schedule _schedule;
     bool _debug = false;
 };
